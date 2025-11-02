@@ -81,7 +81,7 @@ func TestHashPassword(t *testing.T) {
 		assert.NoError(t, err, "could not hash password")
 		cost, err := bcrypt.Cost([]byte(hashed))
 		assert.NoError(t, err, fmt.Sprintf("invalid bcrypt format: %s", hashed))
-		assert.Equal(t, cost, COST_HASHING, "cost hashing should match")
+		assert.Equal(t, COST_HASHING, cost, "cost hashing should match")
 	})
 }
 
