@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
@@ -16,7 +17,14 @@ import (
 )
 
 func TestHandlerLogin(t *testing.T) {
-	apiState := NewState(database.New(dbPool))
+	apiState := NewState(
+		database.New(dbPool),
+		&auth.Config{
+			JWTsecret:            "testSecret",
+			JWTDuration:          time.Minute,
+			RefreshTokenDuration: time.Hour,
+		},
+	)
 
 	type testCase struct {
 		name     string
@@ -201,7 +209,7 @@ func TestHandlerLogin(t *testing.T) {
 				assert.Equal(t, user.ID.String(), resBody.UserID, "mismatch in user id")
 				assert.Equal(t, user.Username, resBody.Username, "mismatch in username")
 				assert.Equal(t, refreshToken.Token, resBody.RefreshToken, "mismatch in refresh token")
-				id, err := auth.ValidateJWT(resBody.Token, "secret")
+				id, err := auth.ValidateJWT(resBody.Token, apiState.authConfig.JWTsecret)
 				assert.NoError(t, err, "invalid JWT in the response body")
 				assert.Equal(t, user.ID.String(), id, "id obtained from JWT does not match the user id")
 			})

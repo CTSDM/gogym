@@ -3,14 +3,15 @@ package api
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,7 +76,7 @@ func TestCreateUser(t *testing.T) {
 		},
 	}
 
-	apiState := NewState(database.New(dbPool))
+	apiState := NewState(database.New(dbPool), &auth.Config{})
 	done := make(chan struct{})
 	timeoutDuration := 1 * time.Second
 	ticker := time.NewTicker(timeoutDuration)
@@ -103,6 +104,7 @@ func TestCreateUser(t *testing.T) {
 				}
 				req := httptest.NewRequestWithContext(context.Background(), "POST", "/test", bytes.NewReader(reqBody))
 				req.Header.Set("Content-Type", "application/json")
+				defer req.Body.Close()
 				rr := httptest.NewRecorder()
 
 				// Call the handler to test
@@ -120,7 +122,7 @@ func TestCreateUser(t *testing.T) {
 
 					// Obtain the user information from the database
 					user, err := apiState.db.GetUser(context.Background(), pgtype.UUID{Bytes: userID, Valid: true})
-					assert.NotErrorIs(t, sql.ErrNoRows, err, "user not found on the database")
+					assert.NotErrorIs(t, pgx.ErrNoRows, err, "user not found on the database")
 					require.NoError(t, err, "unexpected error when querying the database")
 
 					// Validate sent response is the same as the one stored in the db

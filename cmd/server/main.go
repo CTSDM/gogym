@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/CTSDM/gogym/internal/api"
+	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -21,8 +24,40 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not connect to the database: %s", err.Error())
 	}
-	apiState := api.NewState(dbQueries)
+	authConfig, err := getAuthConfig()
+	if err != nil {
+		log.Fatalf("could not set up the auth config: %s", err.Error())
+	}
+	apiState := api.NewState(dbQueries, authConfig)
 	log.Fatalf("something went wrong while setting up the server: %s", apiState.SetupServer().Error())
+}
+
+func getAuthConfig() (*auth.Config, error) {
+	jwtSecret, ok := os.LookupEnv("JWT_SECRET")
+	if !ok {
+		return nil, fmt.Errorf("JWT secret was not found on the env file")
+	}
+	jwtDurationStr, ok := os.LookupEnv("JWT_DURATION")
+	if !ok {
+		return nil, fmt.Errorf("JWT duration was not found on the env file")
+	}
+	jwtDurationInt, err := strconv.Atoi(jwtDurationStr)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse JWT duration into an integer: %s", jwtDurationStr)
+	}
+	refreshTokenDurationStr, ok := os.LookupEnv("REFRESH_TOKEN_DURATION")
+	if !ok {
+		return nil, fmt.Errorf("refresh token duration was not found on the env file")
+	}
+	refreshTokenDurationInt, err := strconv.Atoi(refreshTokenDurationStr)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse JWT duration into an integer: %s", refreshTokenDurationStr)
+	}
+	return &auth.Config{
+		JWTsecret:            jwtSecret,
+		JWTDuration:          time.Duration(jwtDurationInt) * time.Second,
+		RefreshTokenDuration: time.Duration(refreshTokenDurationInt) * time.Second,
+	}, nil
 }
 
 func getDB() (*database.Queries, error) {

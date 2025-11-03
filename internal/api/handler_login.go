@@ -69,7 +69,7 @@ func (s *State) HandlerLogin(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong while creating the refersh token", err)
 		return
 	}
-	jwtString, err := auth.MakeJWT(user.ID.String(), "secret", time.Hour)
+	jwtString, err := auth.MakeJWT(user.ID.String(), s.authConfig.JWTsecret, s.authConfig.JWTDuration)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong while creating the JWT", err)
 		return

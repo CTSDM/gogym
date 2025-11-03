@@ -5,16 +5,19 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
 )
 
 type State struct {
-	db *database.Queries
+	db         *database.Queries
+	authConfig *auth.Config
 }
 
-func NewState(db *database.Queries) *State {
+func NewState(db *database.Queries, auth *auth.Config) *State {
 	return &State{
-		db: db,
+		db:         db,
+		authConfig: auth,
 	}
 }
 
