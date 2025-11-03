@@ -63,11 +63,12 @@ func TestMain(m *testing.M) {
 
 func cleanup(tableTarget string) error {
 	tables := map[string]struct{}{
-		"users":     {},
-		"exercises": {},
-		"logs":      {},
-		"sessions":  {},
-		"sets":      {},
+		"users":          {},
+		"exercises":      {},
+		"logs":           {},
+		"sessions":       {},
+		"sets":           {},
+		"refresh_tokens": {},
 	}
 	if tableTarget == "" {
 		for _, table := range tables {

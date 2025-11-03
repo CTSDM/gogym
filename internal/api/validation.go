@@ -11,6 +11,8 @@ const (
 	maxUsernameLength = 16
 	minPasswordLength = 8
 	maxPasswordLength = 256
+	minCountryLength  = 4
+	maxCountryLength  = 100
 )
 
 var (

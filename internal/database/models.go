@@ -28,6 +28,14 @@ type Log struct {
 	SetID          int64
 }
 
+type RefreshToken struct {
+	Token     string
+	CreatedAt pgtype.Timestamp
+	ExpiresAt pgtype.Timestamp
+	RevokedAt pgtype.Timestamp
+	UserID    pgtype.UUID
+}
+
 type Session struct {
 	ID              int64
 	Date            pgtype.Date
