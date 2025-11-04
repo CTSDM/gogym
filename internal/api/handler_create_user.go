@@ -33,7 +33,8 @@ func (s *State) HandlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// validate the json
-	if err = validateCreateUser(params); err != nil {
+	birthday, err := validateCreateUser(params)
+	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
@@ -44,14 +45,12 @@ func (s *State) HandlerCreateUser(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong while hashing the password", err)
 		return
 	}
-	// get date
-	date, _ := time.Parse(DATE_LAYOUT, params.Birthday)
 
 	// check if the user exists in the database
 	// insert new user into the database
 	user, err := s.db.CreateUser(r.Context(), database.CreateUserParams{
 		Username:       params.Username,
-		Birthday:       pgtype.Date{Time: date, Valid: true},
+		Birthday:       pgtype.Date{Time: birthday, Valid: true},
 		Country:        pgtype.Text{String: params.Country, Valid: true},
 		HashedPassword: hashed,
 	})
@@ -72,28 +71,29 @@ func (s *State) HandlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func validateCreateUser(req createUserRequest) error {
-
+func validateCreateUser(req createUserRequest) (birthday time.Time, err error) {
 	// username validation
-	if err := validateString(req.Username, minUsernameLength, maxUsernameLength); err != nil {
-		return fmt.Errorf("could not validate the username: %w", err)
+	if err = validateString(req.Username, minUsernameLength, maxUsernameLength); err != nil {
+		return birthday, fmt.Errorf("could not validate the username: %w", err)
 	}
 	// password validation
-	if err := validateString(req.Password, minPasswordLength, maxPasswordLength); err != nil {
-		return fmt.Errorf("could not validate the password: %w", err)
+	if err = validateString(req.Password, minPasswordLength, maxPasswordLength); err != nil {
+		return birthday, fmt.Errorf("could not validate the password: %w", err)
 	}
 	// date validation, it is an optional parameter
 	if req.Birthday != "" {
-		if err := validateDate(req.Birthday, DATE_LAYOUT, &minBirthDate, &maxBirthDate); err != nil {
-			return fmt.Errorf("could not validate the date: %w", err)
+		date, err := validateDate(req.Birthday, DATE_LAYOUT, &minBirthDate, &maxBirthDate)
+		if err != nil {
+			return birthday, fmt.Errorf("could not validate the date: %w", err)
 		}
+		birthday = date
 	}
 	// country validation, it is an optional parameter
 	if req.Country != "" {
 		if err := validateString(req.Country, minCountryLength, maxCountryLength); err != nil {
-			return fmt.Errorf("could not validate the country: %w", err)
+			return birthday, fmt.Errorf("could not validate the country: %w", err)
 		}
 	}
 
-	return nil
+	return birthday, err
 }
