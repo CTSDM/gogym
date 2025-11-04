@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -60,4 +62,14 @@ func ValidateJWT(tokenString, tokenSecret string) (string, error) {
 	}
 
 	return userID, nil
+}
+
+// The token values is expected to be as --> headerName: "tokenName tokenValue"
+func GetHeaderValueToken(headers http.Header, headerName string) (string, error) {
+	header := headers.Get(headerName)
+	headerParts := strings.Fields(header)
+	if len(headerParts) != 2 {
+		return "", fmt.Errorf("token string for header %q not found", headerName)
+	}
+	return headerParts[1], nil
 }
