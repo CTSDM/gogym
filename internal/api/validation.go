@@ -33,10 +33,10 @@ func validateString(value string, min, max int) error {
 	return nil
 }
 
-func validateDate(value, format string, min, max *time.Time) error {
+func validateDate(value, format string, min, max *time.Time) (time.Time, error) {
 	date, err := time.Parse(format, value)
 	if err != nil {
-		return err
+		return time.Time{}, err
 	}
 
 	errMsg := ""
@@ -46,12 +46,12 @@ func validateDate(value, format string, min, max *time.Time) error {
 	} else if max != nil && date.After(*max) {
 		errMsg = "must be before " + max.Format(format)
 	} else if min != nil && max != nil && !date.After(*max) && !date.Before(*min) {
-		return nil
+		return date, nil
 	}
 
 	if errMsg != "" {
-		return errors.New(errMsg)
+		return time.Time{}, errors.New(errMsg)
 	}
 
-	return nil
+	return date, nil
 }
