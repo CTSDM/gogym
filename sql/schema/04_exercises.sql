@@ -2,10 +2,7 @@
 CREATE TABLE exercises (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
-    type TEXT NOT NULL,
-    resources TEXT [],
-    description TEXT,
-    muscle_groups TEXT []
+    description TEXT
 );
 
 -- +goose Down

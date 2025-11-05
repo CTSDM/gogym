@@ -5,7 +5,7 @@ CREATE TABLE logs(
     last_modified_at TIMESTAMP DEFAULT timezone('utc', now()),
     weight FLOAT,
     reps INTEGER NOT NULL,
-    logs_order SMALLINT NOT NULL,
+    logs_order INTEGER NOT NULL,
     exercise_id INTEGER NOT NULL,
     set_id BIGINT NOT NULL,
     CONSTRAINT fk_exercise_id FOREIGN KEY(exercise_id)
