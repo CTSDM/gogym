@@ -6,3 +6,6 @@ RETURNING *;
 -- name: GetExercise :one
 SELECT * FROM exercises
 WHERE id = $1;
+
+-- name: GetExercises :many
+SELECT * FROM exercises;

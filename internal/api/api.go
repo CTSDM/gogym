@@ -29,6 +29,8 @@ func (s *State) SetupServer() error {
 	serveMux.HandleFunc("POST /api/v1/login", s.HandlerLogin)
 	serveMux.HandleFunc("POST /api/v1/users", s.HandlerCreateUser)
 	serveMux.HandleFunc("POST /api/v1/sessions", s.HandlerMiddlewareLogin(s.HandlerCreateSession))
+	serveMux.HandleFunc("GET /api/v1/exercises/{id}", s.HandlerGetExercise)
+	serveMux.HandleFunc("GET /api/v1/exercises", s.HandlerGetExercises)
 
 	// server setup
 	server := &http.Server{
