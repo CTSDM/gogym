@@ -37,6 +37,5 @@ func (s *State) SetupServer() error {
 	}
 
 	log.Printf("Serving on port: %s \n", "8080")
-
 	return server.ListenAndServe()
 }
