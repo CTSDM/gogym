@@ -88,7 +88,17 @@ func createSetDBTestHelper(t testing.TB, s *State, sessionID uuid.UUID) int64 {
 
 func createExerciseDBTestHelper(t testing.TB, s *State, name string) int64 {
 	exercise, err := s.db.CreateExercise(context.Background(), database.CreateExerciseParams{
-		Name: name,
+		Name:        name,
+		Description: pgtype.Text{String: "", Valid: true},
+	})
+	require.NoError(t, err)
+	return int64(exercise.ID)
+}
+
+func createExerciseWithDescDBTestHelper(t testing.TB, s *State, name, description string) int64 {
+	exercise, err := s.db.CreateExercise(context.Background(), database.CreateExerciseParams{
+		Name:        name,
+		Description: pgtype.Text{String: description, Valid: true},
 	})
 	require.NoError(t, err)
 	return int64(exercise.ID)

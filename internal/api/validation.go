@@ -16,6 +16,8 @@ const (
 	minSessionNameLength = 1
 	maxSessionNameLength = 100
 	maxRestTimeSeconds   = 3600
+	MaxExerciseLength    = 200
+	MaxDescriptionLength = 500
 )
 
 var (

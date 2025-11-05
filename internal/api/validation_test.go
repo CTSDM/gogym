@@ -67,3 +67,40 @@ func TestValidateString(t *testing.T) {
 		assert.EqualError(t, err, ErrMaxMinIncoherent.Error())
 	})
 }
+
+func TestValidateStringWithOptionalField(t *testing.T) {
+	testCases := []struct {
+		value    string
+		min      int
+		max      int
+		hasError bool
+	}{
+		{
+			value: "",
+			min:   -1,
+			max:   10,
+		},
+		{
+			value: "optional",
+			min:   -1,
+			max:   10,
+		},
+		{
+			value:    randomString(MaxDescriptionLength + 1),
+			min:      -1,
+			max:      MaxDescriptionLength,
+			hasError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("value length %d, min %d, max %d", len(tc.value), tc.min, tc.max), func(t *testing.T) {
+			err := validateString(tc.value, tc.min, tc.max)
+			if tc.hasError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

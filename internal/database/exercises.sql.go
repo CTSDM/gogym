@@ -40,3 +40,27 @@ func (q *Queries) GetExercise(ctx context.Context, id int32) (Exercise, error) {
 	err := row.Scan(&i.ID, &i.Name, &i.Description)
 	return i, err
 }
+
+const getExercises = `-- name: GetExercises :many
+SELECT id, name, description FROM exercises
+`
+
+func (q *Queries) GetExercises(ctx context.Context) ([]Exercise, error) {
+	rows, err := q.db.Query(ctx, getExercises)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Exercise
+	for rows.Next() {
+		var i Exercise
+		if err := rows.Scan(&i.ID, &i.Name, &i.Description); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
