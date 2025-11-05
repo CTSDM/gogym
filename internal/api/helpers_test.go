@@ -73,3 +73,23 @@ func createSessionDBTestHelper(t testing.TB, s *State, name string) uuid.UUID {
 
 	return session.ID.Bytes
 }
+
+func createSetDBTestHelper(t testing.TB, s *State, sessionID uuid.UUID) int64 {
+	set, err := s.db.CreateSet(context.Background(),
+		database.CreateSetParams{
+			SetOrder:  1,
+			RestTime:  pgtype.Int4{Int32: 90, Valid: true},
+			SessionID: pgtype.UUID{Bytes: sessionID, Valid: true},
+		})
+	require.NoError(t, err)
+
+	return set.ID
+}
+
+func createExerciseDBTestHelper(t testing.TB, s *State, name string) int64 {
+	exercise, err := s.db.CreateExercise(context.Background(), database.CreateExerciseParams{
+		Name: name,
+	})
+	require.NoError(t, err)
+	return int64(exercise.ID)
+}

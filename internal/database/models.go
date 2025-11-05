@@ -9,12 +9,9 @@ import (
 )
 
 type Exercise struct {
-	ID           int32
-	Name         string
-	Type         string
-	Resources    []string
-	Description  pgtype.Text
-	MuscleGroups []string
+	ID          int32
+	Name        string
+	Description pgtype.Text
 }
 
 type Log struct {
@@ -23,7 +20,7 @@ type Log struct {
 	LastModifiedAt pgtype.Timestamp
 	Weight         pgtype.Float8
 	Reps           int32
-	LogsOrder      int16
+	LogsOrder      int32
 	ExerciseID     int32
 	SetID          int64
 }
