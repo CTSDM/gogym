@@ -7,12 +7,14 @@ import (
 )
 
 const (
-	minUsernameLength = 4
-	maxUsernameLength = 16
-	minPasswordLength = 8
-	maxPasswordLength = 256
-	minCountryLength  = 4
-	maxCountryLength  = 100
+	minUsernameLength    = 4
+	maxUsernameLength    = 16
+	minPasswordLength    = 8
+	maxPasswordLength    = 256
+	minCountryLength     = 4
+	maxCountryLength     = 100
+	minSessionNameLength = 1
+	maxSessionNameLength = 100
 )
 
 var (
