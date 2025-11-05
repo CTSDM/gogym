@@ -47,7 +47,7 @@ type Session struct {
 
 type Set struct {
 	ID        int64
-	SetOrder  int16
+	SetOrder  int32
 	RestTime  pgtype.Int4
 	SessionID pgtype.UUID
 }

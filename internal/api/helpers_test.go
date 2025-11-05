@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"math/rand"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,6 +41,35 @@ func createUserDBTestHelper(t testing.TB, s *State, username, password string) u
 		})
 
 	require.NoError(t, err)
-	userID := uuid.MustParse(user.ID.String())
-	return userID
+
+	return user.ID.Bytes
+}
+
+func randomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	sb := strings.Builder{}
+	sb.Grow(length)
+	for range length {
+		sb.WriteByte(charset[rand.Intn(len(charset))])
+	}
+	return sb.String()
+}
+
+func createSessionDBTestHelper(t testing.TB, s *State, name string) uuid.UUID {
+	// generate random string and random password to be used in the database
+	userID, err := s.db.CreateUser(context.Background(), database.CreateUserParams{
+		Username:       randomString(10),
+		HashedPassword: randomString(10),
+	})
+	require.NoError(t, err)
+	session, err := s.db.CreateSession(context.Background(),
+		database.CreateSessionParams{
+			Name:   name,
+			Date:   pgtype.Date{Time: time.Now(), Valid: true},
+			UserID: pgtype.UUID{Bytes: userID.ID.Bytes, Valid: true},
+		})
+	require.NoError(t, err)
+
+	return session.ID.Bytes
 }

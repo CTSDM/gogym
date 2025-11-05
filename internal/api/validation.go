@@ -15,6 +15,7 @@ const (
 	maxCountryLength     = 100
 	minSessionNameLength = 1
 	maxSessionNameLength = 100
+	maxRestTimeSeconds   = 3600
 )
 
 var (
