@@ -37,10 +37,11 @@ type RefreshToken struct {
 }
 
 type Session struct {
-	ID              int64
+	ID              pgtype.UUID
+	Name            string
 	Date            pgtype.Date
-	TimeStart       pgtype.Timestamp
-	DurationMinutes int16
+	StartTimestamp  pgtype.Timestamp
+	DurationMinutes pgtype.Int2
 	UserID          pgtype.UUID
 }
 
@@ -48,7 +49,7 @@ type Set struct {
 	ID        int64
 	SetOrder  int16
 	RestTime  pgtype.Int4
-	SessionID int64
+	SessionID pgtype.UUID
 }
 
 type User struct {
