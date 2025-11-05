@@ -76,6 +76,7 @@ func (s *State) HandlerCreateSession(w http.ResponseWriter, r *http.Request) {
 	session, err := s.db.CreateSession(r.Context(), dbParams)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not create the session", err)
+		return
 	}
 
 	respondWithJSON(w, http.StatusCreated,

@@ -102,7 +102,7 @@ func validateLogin(req loginReq) error {
 
 	// validate password
 	if req.Password == "" {
-		return errors.New("username cannot be empty")
+		return errors.New("password cannot be empty")
 	}
 
 	return nil
