@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -23,6 +22,12 @@ type createSetRes struct {
 }
 
 func (s *State) HandlerCreateSet(w http.ResponseWriter, r *http.Request) {
+	// session id must be a valid uuid
+	sessionID, err := uuid.Parse(r.PathValue("sessionID"))
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "session ID not found", err)
+		return
+	}
 	// Decode the incoming json
 	var requestParams createSetReq
 	defer r.Body.Close()
@@ -33,15 +38,14 @@ func (s *State) HandlerCreateSet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request
-	sessionID, err := requestParams.validate()
-	if err != nil {
+	if err := requestParams.validate(); err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
 	// Check session id against database
 	if _, err := s.db.GetSession(r.Context(), pgtype.UUID{Bytes: sessionID, Valid: true}); err != nil {
-		respondWithError(w, http.StatusNotFound, "session ID does not exist", err)
+		respondWithError(w, http.StatusNotFound, "session ID not found", err)
 		return
 	}
 
@@ -72,25 +76,16 @@ func (s *State) HandlerCreateSet(w http.ResponseWriter, r *http.Request) {
 		})
 }
 
-func (r *createSetReq) validate() (uuid.UUID, error) {
-	// session id validation
-	if r.SessionID == "" {
-		return uuid.UUID{}, errors.New("session ID cannot be empty")
-	}
-	sessionID, err := uuid.Parse(r.SessionID)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("could not validate the session ID: %w", err)
-	}
-
+func (r *createSetReq) validate() error {
 	// set order validation
 	if r.SetOrder < 0 {
-		return uuid.UUID{}, fmt.Errorf("set order must be greater than 1")
+		return fmt.Errorf("set order must be greater than 1")
 	}
 
 	// rest time validation
 	if r.RestTime > maxRestTimeSeconds {
-		return uuid.UUID{}, fmt.Errorf("rest time in seconds must be less than %d seconds", maxRestTimeSeconds)
+		return fmt.Errorf("rest time in seconds must be less than %d seconds", maxRestTimeSeconds)
 	}
 
-	return sessionID, nil
+	return nil
 }
