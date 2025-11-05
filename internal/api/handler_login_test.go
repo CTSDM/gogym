@@ -76,7 +76,7 @@ func TestHandlerLogin(t *testing.T) {
 		}
 
 		require.NoError(t, cleanup("users"), "failed to clean the database")
-		createUserDBTestHelper(t, apiState, username, password)
+		createUserDBTestHelper(t, apiState, username, password, false)
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -142,7 +142,9 @@ func TestHandlerLogin(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				userID := createUserDBTestHelper(t, apiState, tc.username, tc.password)
+				userIDDB := createUserDBTestHelper(t, apiState, tc.username, tc.password, false).ID
+				userID := userIDDB.Bytes
+				userIDString := userIDDB.String()
 				createTokensDBHelperTest(t, userID, apiState)
 				// Prepare request body
 				reqBodyStruct := loginReq{
@@ -181,12 +183,12 @@ func TestHandlerLogin(t *testing.T) {
 				require.NoError(t, err, "unexpected error while retrieving the refresh token from the database")
 
 				// Checks
-				assert.Equal(t, userID.String(), resBody.UserID, "mismatch in user id")
+				assert.Equal(t, userIDString, resBody.UserID, "mismatch in user id")
 				assert.Equal(t, tc.username, resBody.Username, "mismatch in username")
 				assert.Equal(t, gotRefreshToken.Token, resBody.RefreshToken, "mismatch in refresh token")
 				id, err := auth.ValidateJWT(resBody.Token, apiState.authConfig.JWTsecret)
 				assert.NoError(t, err, "invalid JWT in the response body")
-				assert.Equal(t, userID.String(), id, "id obtained from JWT does not match the user id")
+				assert.Equal(t, userIDString, id, "id obtained from JWT does not match the user id")
 			})
 		}
 	})

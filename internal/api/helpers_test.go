@@ -30,19 +30,23 @@ func createTokensDBHelperTest(t testing.TB, userID uuid.UUID, s *State) (string,
 	return jwt, refreshToken
 }
 
-func createUserDBTestHelper(t testing.TB, s *State, username, password string) uuid.UUID {
+func createUserDBTestHelper(t testing.TB, s *State, username, password string, hasBirthay bool) database.User {
 	hashedPassword, err := auth.HashPassword(password)
 	require.NoError(t, err)
 
-	user, err := s.db.CreateUser(context.Background(),
-		database.CreateUserParams{
-			Username:       username,
-			HashedPassword: hashedPassword,
-		})
+	dbParams := database.CreateUserParams{
+		Username:       username,
+		HashedPassword: hashedPassword,
+	}
 
+	if hasBirthay {
+		dbParams.Birthday = pgtype.Date{Time: time.Now().AddDate(-50, 0, 0), Valid: true}
+	}
+
+	user, err := s.db.CreateUser(context.Background(), dbParams)
 	require.NoError(t, err)
 
-	return user.ID.Bytes
+	return user
 }
 
 func randomString(length int) string {

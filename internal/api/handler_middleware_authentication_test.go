@@ -85,7 +85,7 @@ func TestHandlerMiddlewareLogin(t *testing.T) {
 	}
 
 	require.NoError(t, cleanup("users"), "failed to clean the database")
-	userID := createUserDBTestHelper(t, apiState, "usertest", "passwordtest")
+	userID := createUserDBTestHelper(t, apiState, "usertest", "passwordtest", false).ID.Bytes
 	token, refreshToken := createTokensDBHelperTest(t, userID, apiState)
 
 	apiState.db.CreateRefreshToken(context.Background(),
