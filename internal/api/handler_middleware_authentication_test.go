@@ -12,6 +12,7 @@ import (
 	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -83,34 +84,16 @@ func TestHandlerMiddlewareLogin(t *testing.T) {
 		},
 	}
 
-	// populate the userDB with a single user
-	reqBodyStruct := createUserRequest{
-		Username: "username",
-		Password: "password",
-	}
-	reqBody, err := json.Marshal(reqBodyStruct)
-	require.NoError(t, err, "could not marshal the request body for the created user")
-	reqBodyReader := bytes.NewReader(reqBody)
-	reqHelper := httptest.NewRequestWithContext(context.Background(), "GET", "/test", reqBodyReader)
-	reqHelper.Header.Set("Content-Type", "application/json")
-	defer reqHelper.Body.Close()
-	reqHelper.Body = &Repeat{reader: reqBodyReader, offset: 0}
-	rrCreateUser := httptest.NewRecorder()
-	apiState.HandlerCreateUser(rrCreateUser, reqHelper)
-	require.Equal(t, http.StatusCreated, rrCreateUser.Code, "could not create the user")
+	require.NoError(t, cleanup("users"), "failed to clean the database")
+	userID := createUserDBTestHelper(t, apiState, "usertest", "passwordtest")
+	token, refreshToken := createTokensDBHelperTest(t, userID, apiState)
 
-	// login to get the jwt and the refresh token
-	reqHelper.Body.(*Repeat).Reset()
-	rrLogin := httptest.NewRecorder()
-	apiState.HandlerLogin(rrLogin, reqHelper)
-	require.Equal(t, http.StatusOK, rrLogin.Code, "could not log in")
-
-	// decode the login user response
-	var resBody loginRes
-	decoder := json.NewDecoder(rrLogin.Body)
-	require.NoError(t, decoder.Decode(&resBody), "could not decode the JSON response")
-	userID, err := uuid.Parse(resBody.UserID)
-	require.NoError(t, err, "the user id obtained from the login response is not valid")
+	apiState.db.CreateRefreshToken(context.Background(),
+		database.CreateRefreshTokenParams{
+			Token:     refreshToken,
+			UserID:    pgtype.UUID{Bytes: userID, Valid: true},
+			ExpiresAt: pgtype.Timestamp{Time: time.Now().Add(time.Hour), Valid: true},
+		})
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -119,13 +102,13 @@ func TestHandlerMiddlewareLogin(t *testing.T) {
 
 			// set up the headers
 			if tc.hasValidJWT {
-				tc.jwtString = resBody.Token
+				tc.jwtString = token
 			}
 			if tc.hasHeaderJWT {
 				req.Header.Set("Auth", "Bearer "+tc.jwtString)
 			}
 			if tc.hasValidRefreshToken {
-				tc.refreshTokenString = resBody.RefreshToken
+				tc.refreshTokenString = refreshToken
 			}
 			if tc.hasHeaderRefreshToken {
 				req.Header.Set("X-Refresh-Token", "Token "+tc.refreshTokenString)

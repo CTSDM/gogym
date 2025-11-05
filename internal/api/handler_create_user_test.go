@@ -81,7 +81,6 @@ func TestCreateUser(t *testing.T) {
 	timeoutDuration := 1 * time.Second
 	ticker := time.NewTicker(timeoutDuration)
 	cleanup("users")
-	defer t.Cleanup(func() { cleanup("") }) // clear the whole database
 
 	go func() {
 		defer close(done)
