@@ -153,7 +153,6 @@ func TestHandlerMiddlewareLogin(t *testing.T) {
 				gotJWT, err := auth.GetHeaderValueToken(rr.Result().Header, "Auth")
 				require.NoError(t, err)
 				_, err = auth.ValidateJWT(gotJWT, apiState.authConfig.JWTsecret)
-				t.Log(gotJWT)
 				assert.NoError(t, err)
 			}
 		})
