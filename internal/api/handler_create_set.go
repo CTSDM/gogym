@@ -11,13 +11,13 @@ import (
 )
 
 type createSetReq struct {
-	SessionID string `json:"session_id"`
-	SetOrder  int32  `json:"set_order"`
-	RestTime  int32  `json:"rest_time"`
+	SetOrder int32 `json:"set_order"`
+	RestTime int32 `json:"rest_time"`
 }
 
 type createSetRes struct {
-	ID int `json:"id"`
+	ID        int    `json:"id"`
+	SessionID string `json:"session_id"`
 	createSetReq
 }
 
@@ -67,11 +67,11 @@ func (s *State) HandlerCreateSet(w http.ResponseWriter, r *http.Request) {
 
 	respondWithJSON(w, http.StatusCreated,
 		createSetRes{
-			ID: int(set.ID),
+			ID:        int(set.ID),
+			SessionID: set.SessionID.String(),
 			createSetReq: createSetReq{
-				SessionID: set.SessionID.String(),
-				SetOrder:  set.SetOrder,
-				RestTime:  set.RestTime.Int32,
+				SetOrder: set.SetOrder,
+				RestTime: set.RestTime.Int32,
 			},
 		})
 }

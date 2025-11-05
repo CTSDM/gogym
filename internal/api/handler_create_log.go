@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type createLogReq struct {
-	SetID      int64   `json:"set_id"`
 	ExerciseID int32   `json:"exercise_id"`
 	Weight     float64 `json:"weight"`
 	Reps       int32   `json:"reps"`
@@ -18,11 +18,18 @@ type createLogReq struct {
 }
 
 type createLogRes struct {
-	ID int64 `json:"id"`
+	ID    int64 `json:"id"`
+	SetID int64 `json:"set_id"`
 	createLogReq
 }
 
 func (s *State) HandlerCreateLog(w http.ResponseWriter, r *http.Request) {
+	// set id must be a valid number
+	setID, err := strconv.Atoi(r.PathValue("setID"))
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "set ID not found", err)
+		return
+	}
 	// Decode the incoming json
 	var requestParams createLogReq
 	defer r.Body.Close()
@@ -32,16 +39,15 @@ func (s *State) HandlerCreateLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validat request
-	err := requestParams.validate()
-	if err != nil {
+	// Validate request
+	if err := requestParams.validate(); err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
 	// Check set id against database
-	if _, err := s.db.GetSet(r.Context(), int64(requestParams.SetID)); err != nil {
-		respondWithError(w, http.StatusNotFound, "set id does not exist", err)
+	if _, err := s.db.GetSet(r.Context(), int64(setID)); err != nil {
+		respondWithError(w, http.StatusNotFound, "set ID not found", err)
 		return
 	}
 	// Check exercise id against database
@@ -55,7 +61,7 @@ func (s *State) HandlerCreateLog(w http.ResponseWriter, r *http.Request) {
 		Weight:     pgtype.Float8{Float64: requestParams.Weight, Valid: true},
 		Reps:       requestParams.Reps,
 		LogsOrder:  requestParams.Order,
-		SetID:      requestParams.SetID,
+		SetID:      int64(setID),
 		ExerciseID: requestParams.ExerciseID,
 	}
 	newLog, err := s.db.CreateLog(r.Context(), dbParams)
@@ -65,9 +71,9 @@ func (s *State) HandlerCreateLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusCreated, createLogRes{
-		ID: newLog.ID,
+		ID:    newLog.ID,
+		SetID: int64(setID),
 		createLogReq: createLogReq{
-			SetID:      requestParams.SetID,
 			ExerciseID: requestParams.ExerciseID,
 			Weight:     requestParams.Weight,
 			Reps:       requestParams.Reps,

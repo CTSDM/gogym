@@ -74,9 +74,8 @@ func TestCreateSet(t *testing.T) {
 				reader = bytes.NewReader([]byte("{}"))
 			} else {
 				reqParams := createSetReq{
-					RestTime:  tc.restTime,
-					SetOrder:  tc.order,
-					SessionID: sessionID.String(),
+					RestTime: tc.restTime,
+					SetOrder: tc.order,
 				}
 				body, err := json.Marshal(reqParams)
 				require.NoError(t, err, "unexpected JSON marshal error")
