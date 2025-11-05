@@ -68,6 +68,7 @@ func TestValidateCreateSet(t *testing.T) {
 			name:       "rest time value too large",
 			restTime:   maxRestTimeSeconds + 1,
 			statusCode: http.StatusBadRequest,
+			errMessage: "must be less than",
 		},
 	}
 
