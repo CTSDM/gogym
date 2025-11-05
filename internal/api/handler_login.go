@@ -11,6 +11,7 @@ import (
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type loginReq struct {
@@ -56,17 +57,20 @@ func (s *State) HandlerLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// validate the password
-	if err := auth.CheckPasswordHash(params.Password, user.HashedPassword); err != nil {
+	if err := auth.CheckPasswordHash(params.Password, user.HashedPassword); err == bcrypt.ErrMismatchedHashAndPassword {
 		respondWithJSON(w, http.StatusOK, errorResponse{
 			Error: "Incorrect username/password",
 		})
+		return
+	} else if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong while verifying the password", err)
 		return
 	}
 
 	// Generate refresh Token, JWT
 	refreshToken, err := auth.MakeRefreshToken()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Something went wrong while creating the refersh token", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong while creating the refresh token", err)
 		return
 	}
 	jwtString, err := auth.MakeJWT(user.ID.String(), s.authConfig.JWTsecret, s.authConfig.JWTDuration)
@@ -102,7 +106,7 @@ func validateLogin(req loginReq) error {
 
 	// validate password
 	if req.Password == "" {
-		return errors.New("username cannot be empty")
+		return errors.New("password cannot be empty")
 	}
 
 	return nil

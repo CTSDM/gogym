@@ -99,14 +99,8 @@ func TestHandlerCreateSession(t *testing.T) {
 		},
 	}
 
-	user, err := apiState.db.CreateUser(context.Background(),
-		database.CreateUserParams{
-			Username:       "testuser",
-			HashedPassword: "hash",
-		})
-
-	require.NoError(t, err)
-	userID := uuid.MustParse(user.ID.String())
+	cleanup("users")
+	userID := createUserDBTestHelper(t, apiState, "usertest", "passwordtest")
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
@@ -314,7 +308,7 @@ func TestPopulateCreateSession(t *testing.T) {
 			}
 
 			assert.Empty(t, tc.timeStart, "time start was populated")
-			assert.Empty(t, tc.durationMinutes, "duration mintues was populated")
+			assert.Empty(t, tc.durationMinutes, "duration minutes was populated")
 		})
 	}
 }
