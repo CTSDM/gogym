@@ -24,13 +24,26 @@ func NewState(db *database.Queries, auth *auth.Config) *State {
 func (s *State) SetupServer() error {
 	serveMux := http.NewServeMux()
 
-	// handler functions
-	serveMux.HandleFunc("GET /api/v1/users", s.HandlerGetUsers)
+	// login endpoint
 	serveMux.HandleFunc("POST /api/v1/login", s.HandlerLogin)
+
+	// users endpoints
 	serveMux.HandleFunc("POST /api/v1/users", s.HandlerCreateUser)
-	serveMux.HandleFunc("POST /api/v1/sessions", s.HandlerMiddlewareLogin(s.HandlerCreateSession))
+	serveMux.HandleFunc("GET /api/v1/users/{id}", s.HandlerMiddlewareAuthentication(s.HandlerGetUser))
+	serveMux.HandleFunc("GET /api/v1/users", s.HandlerMiddlewareAdminOnly(s.HandlerGetUsers))
+
+	// sessions endpoints
+	serveMux.HandleFunc("POST /api/v1/sessions", s.HandlerMiddlewareAuthentication(s.HandlerCreateSession))
+
+	// sets endpoints
+	serveMux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets", s.HandlerMiddlewareAuthentication(s.HandlerCreateSet))
+
+	// logs endpoints
+	serveMux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets/{setID}/logs", s.HandlerMiddlewareAuthentication(s.HandlerCreateLog))
+
+	// exercises endpoints
 	serveMux.HandleFunc("GET /api/v1/exercises/{id}", s.HandlerGetExercise)
-	serveMux.HandleFunc("GET /api/v1/exercises", s.HandlerGetExercises)
+	serveMux.HandleFunc("GET /api/v1/exercises", s.HandlerMiddlewareAdminOnly(s.HandlerGetExercises))
 
 	// server setup
 	server := &http.Server{

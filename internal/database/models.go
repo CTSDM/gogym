@@ -53,6 +53,7 @@ type User struct {
 	ID             pgtype.UUID
 	Username       string
 	HashedPassword string
+	IsAdmin        pgtype.Bool
 	CreatedAt      pgtype.Timestamp
 	Country        pgtype.Text
 	Birthday       pgtype.Date

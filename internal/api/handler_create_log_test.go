@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/CTSDM/gogym/internal/auth"
@@ -27,7 +28,7 @@ func TestHandlerCreateLog(t *testing.T) {
 		weight       float64
 		reps         int32
 		order        int32
-		setNotFound  bool
+		invalidSetID bool
 	}{
 		{
 			name:       "happy path",
@@ -86,15 +87,24 @@ func TestHandlerCreateLog(t *testing.T) {
 			errMsg:     "reps cannot be less than zero",
 		},
 		{
-			name:        "set id not found",
-			statusCode:  http.StatusNotFound,
-			hasJSON:     true,
-			weight:      100,
-			reps:        10,
-			order:       1,
-			setID:       99999,
-			setNotFound: true,
-			errMsg:      "set id does not exist",
+			name:       "set id does not exist",
+			statusCode: http.StatusNotFound,
+			hasJSON:    true,
+			weight:     100,
+			reps:       10,
+			order:      1,
+			setID:      99999,
+			errMsg:     "not found",
+		},
+		{
+			name:         "set id is not a valid id",
+			statusCode:   http.StatusNotFound,
+			hasJSON:      true,
+			weight:       100,
+			reps:         10,
+			order:        1,
+			errMsg:       "not found",
+			invalidSetID: true,
 		},
 		{
 			name:       "exercise id not found",
@@ -119,14 +129,10 @@ func TestHandlerCreateLog(t *testing.T) {
 				reader = bytes.NewReader([]byte("{}"))
 			} else if tc.hasJSON {
 				reqParams := createLogReq{
-					SetID:      setID,
 					ExerciseID: int32(exerciseID),
 					Weight:     tc.weight,
 					Reps:       tc.reps,
 					Order:      tc.order,
-				}
-				if tc.setNotFound {
-					reqParams.SetID = tc.setID
 				}
 				if tc.exerciseID != 0 {
 					reqParams.ExerciseID = tc.exerciseID
@@ -138,6 +144,15 @@ func TestHandlerCreateLog(t *testing.T) {
 
 			req, err := http.NewRequest("POST", "/test", reader)
 			require.NoError(t, err, "unexpected error while creating the request")
+
+			// set up the path value
+			req.SetPathValue("setID", strconv.FormatInt(setID, 10))
+			if tc.invalidSetID {
+				req.SetPathValue("setID", "not an int")
+			} else if tc.setID != 0 {
+				req.SetPathValue("setID", strconv.FormatInt(tc.setID, 10))
+			}
+
 			rr := httptest.NewRecorder()
 
 			apiState.HandlerCreateLog(rr, req)

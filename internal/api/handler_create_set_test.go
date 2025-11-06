@@ -15,18 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateCreateSet(t *testing.T) {
+func TestCreateSet(t *testing.T) {
 	apiState := NewState(database.New(dbPool), &auth.Config{})
 	testCases := []struct {
-		name              string
-		order             int32
-		restTime          int32
-		statusCode        int
-		sessionIDStr      string
-		hasEmptyJSON      bool
-		hasValidSessionID bool
-		errMessage        string
-		forceSessionID    bool // force to set the session ID value
+		name         string
+		order        int32
+		restTime     int32
+		statusCode   int
+		sessionIDStr string
+		hasEmptyJSON bool
+		errMessage   string
 	}{
 		{
 			name:       "happy path",
@@ -37,15 +35,8 @@ func TestValidateCreateSet(t *testing.T) {
 		{
 			name:         "invalid session id",
 			sessionIDStr: "notvalid",
-			statusCode:   http.StatusBadRequest,
-			errMessage:   "could not validate the session ID",
-		},
-		{
-			name:           "empty session id",
-			sessionIDStr:   "",
-			statusCode:     http.StatusBadRequest,
-			errMessage:     "session ID cannot be empty",
-			forceSessionID: true,
+			statusCode:   http.StatusNotFound,
+			errMessage:   "session ID not found",
 		},
 		{
 			name:       "invalid order",
@@ -57,7 +48,7 @@ func TestValidateCreateSet(t *testing.T) {
 			name:         "session id not found",
 			sessionIDStr: uuid.NewString(),
 			statusCode:   http.StatusNotFound,
-			errMessage:   "session ID does not exist",
+			errMessage:   "session ID not found",
 		},
 		{
 			name:       "negative rest time should return 0 value",
@@ -83,12 +74,8 @@ func TestValidateCreateSet(t *testing.T) {
 				reader = bytes.NewReader([]byte("{}"))
 			} else {
 				reqParams := createSetReq{
-					RestTime:  tc.restTime,
-					SetOrder:  tc.order,
-					SessionID: sessionID.String(),
-				}
-				if tc.sessionIDStr != "" || tc.forceSessionID {
-					reqParams.SessionID = tc.sessionIDStr
+					RestTime: tc.restTime,
+					SetOrder: tc.order,
 				}
 				body, err := json.Marshal(reqParams)
 				require.NoError(t, err, "unexpected JSON marshal error")
@@ -97,6 +84,10 @@ func TestValidateCreateSet(t *testing.T) {
 
 			req, err := http.NewRequest("POST", "/test", reader)
 			require.NoError(t, err, "unexpected error while creating the request")
+			req.SetPathValue("sessionID", sessionID.String())
+			if tc.sessionIDStr != "" {
+				req.SetPathValue("sessionID", tc.sessionIDStr)
+			}
 			rr := httptest.NewRecorder()
 
 			// call the function
@@ -114,7 +105,7 @@ func TestValidateCreateSet(t *testing.T) {
 				decoder := json.NewDecoder(rr.Body)
 				require.NoError(t, decoder.Decode(&resParams))
 				// assert values
-				assert.Equal(t, sessionID.String(), resParams.SessionID)
+				assert.Equal(t, req.PathValue("sessionID"), resParams.SessionID)
 				if tc.restTime > 0 {
 					assert.Equal(t, tc.restTime, resParams.RestTime)
 				} else {

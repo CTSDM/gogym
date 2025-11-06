@@ -100,7 +100,7 @@ func TestHandlerCreateSession(t *testing.T) {
 	}
 
 	cleanup("users")
-	userID := createUserDBTestHelper(t, apiState, "usertest", "passwordtest")
+	userID := createUserDBTestHelper(t, apiState, "usertest", "passwordtest", false).ID.Bytes
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
