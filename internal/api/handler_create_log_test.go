@@ -121,7 +121,6 @@ func TestHandlerCreateLog(t *testing.T) {
 	require.NoError(t, cleanup("sessions"))
 	require.NoError(t, cleanup("sets"))
 	require.NoError(t, cleanup("exercises"))
-
 	sessionID := createSessionDBTestHelper(t, apiState, "test session")
 	exerciseID := createExerciseDBTestHelper(t, apiState, "pull ups")
 	setID := createSetDBTestHelper(t, apiState, sessionID, exerciseID)
