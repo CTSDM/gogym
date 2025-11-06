@@ -11,12 +11,45 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createAdmin = `-- name: CreateAdmin :one
+INSERT INTO users (id, username, is_admin, country, hashed_password, birthday)
+VALUES (gen_random_uuid(), $1, TRUE, $2, $3, $4)
+RETURNING id, username, hashed_password, is_admin, created_at, country, birthday
+`
+
+type CreateAdminParams struct {
+	Username       string
+	Country        pgtype.Text
+	HashedPassword string
+	Birthday       pgtype.Date
+}
+
+func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (User, error) {
+	row := q.db.QueryRow(ctx, createAdmin,
+		arg.Username,
+		arg.Country,
+		arg.HashedPassword,
+		arg.Birthday,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.HashedPassword,
+		&i.IsAdmin,
+		&i.CreatedAt,
+		&i.Country,
+		&i.Birthday,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, username, country, hashed_password, birthday)
 VALUES (
     gen_random_uuid(), $1, $2, $3, $4
 )
-RETURNING id, username, hashed_password, created_at, country, birthday
+RETURNING id, username, hashed_password, is_admin, created_at, country, birthday
 `
 
 type CreateUserParams struct {
@@ -38,6 +71,28 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.ID,
 		&i.Username,
 		&i.HashedPassword,
+		&i.IsAdmin,
+		&i.CreatedAt,
+		&i.Country,
+		&i.Birthday,
+	)
+	return i, err
+}
+
+const deleteUser = `-- name: DeleteUser :one
+DELETE FROM users
+WHERE id = $1
+RETURNING id, username, hashed_password, is_admin, created_at, country, birthday
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, id pgtype.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, deleteUser, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.HashedPassword,
+		&i.IsAdmin,
 		&i.CreatedAt,
 		&i.Country,
 		&i.Birthday,
@@ -46,7 +101,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, username, hashed_password, created_at, country, birthday FROM users
+SELECT id, username, hashed_password, is_admin, created_at, country, birthday FROM users
 WHERE id = $1
 `
 
@@ -57,6 +112,7 @@ func (q *Queries) GetUser(ctx context.Context, id pgtype.UUID) (User, error) {
 		&i.ID,
 		&i.Username,
 		&i.HashedPassword,
+		&i.IsAdmin,
 		&i.CreatedAt,
 		&i.Country,
 		&i.Birthday,
@@ -65,7 +121,7 @@ func (q *Queries) GetUser(ctx context.Context, id pgtype.UUID) (User, error) {
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, hashed_password, created_at, country, birthday FROM users
+SELECT id, username, hashed_password, is_admin, created_at, country, birthday FROM users
 WHERE username = $1
 `
 
@@ -76,6 +132,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.ID,
 		&i.Username,
 		&i.HashedPassword,
+		&i.IsAdmin,
 		&i.CreatedAt,
 		&i.Country,
 		&i.Birthday,
@@ -84,7 +141,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 }
 
 const getUsers = `-- name: GetUsers :many
-SELECT id, username, hashed_password, created_at, country, birthday FROM users
+SELECT id, username, hashed_password, is_admin, created_at, country, birthday FROM users
 `
 
 func (q *Queries) GetUsers(ctx context.Context) ([]User, error) {
@@ -100,6 +157,7 @@ func (q *Queries) GetUsers(ctx context.Context) ([]User, error) {
 			&i.ID,
 			&i.Username,
 			&i.HashedPassword,
+			&i.IsAdmin,
 			&i.CreatedAt,
 			&i.Country,
 			&i.Birthday,

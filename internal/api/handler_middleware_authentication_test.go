@@ -26,7 +26,99 @@ func checkContextNext(t *testing.T, expectedUserID uuid.UUID) http.HandlerFunc {
 	}
 }
 
-func TestHandlerMiddlewareLogin(t *testing.T) {
+func TestHandlerMiddlewareAdminOnly(t *testing.T) {
+	apiState := NewState(
+		database.New(dbPool),
+		&auth.Config{
+			JWTsecret:            "somerandomsecret",
+			RefreshTokenDuration: time.Hour,
+			JWTDuration:          time.Minute,
+		})
+
+	testCases := []struct {
+		name       string
+		isAdmin    bool
+		deleteUser bool
+		statusCode int
+		errMessage string
+	}{
+		{
+			name:       "admin user can access",
+			isAdmin:    true,
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "non-admin user is forbidden",
+			isAdmin:    false,
+			statusCode: http.StatusForbidden,
+			errMessage: "admin access required",
+		},
+		{
+			name:       "user not found in database",
+			deleteUser: true,
+			statusCode: http.StatusUnauthorized,
+			errMessage: "could not retrieve user from the database",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NoError(t, cleanup("users"))
+			require.NoError(t, cleanup("refresh_tokens"))
+
+			username := "usertest"
+			password := "passwordtest"
+			var user database.User
+			var err error
+			if tc.isAdmin {
+				user, err = apiState.db.CreateAdmin(context.Background(), database.CreateAdminParams{
+					Username:       username,
+					HashedPassword: password,
+				})
+				require.NoError(t, err)
+				t.Logf("%+v", user)
+			} else {
+				user, err = apiState.db.CreateUser(context.Background(), database.CreateUserParams{
+					Username:       username,
+					HashedPassword: password,
+				})
+				require.NoError(t, err)
+			}
+
+			userID := user.ID.Bytes
+			token, _ := createTokensDBHelperTest(t, userID, apiState)
+
+			if tc.deleteUser {
+				_, err = apiState.db.DeleteUser(context.Background(), user.ID)
+				require.NoError(t, err)
+			}
+
+			req := httptest.NewRequest("GET", "/test", nil)
+			req.Header.Set("Auth", "Bearer "+token)
+			rr := httptest.NewRecorder()
+
+			dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := apiState.HandlerMiddlewareAdminOnly(dummyHandler)
+			handler.ServeHTTP(rr, req)
+
+			require.Equal(t, tc.statusCode, rr.Code)
+
+			if tc.errMessage != "" {
+				var errRes errorResponse
+				decoder := json.NewDecoder(rr.Body)
+				decoder.DisallowUnknownFields()
+				require.NoError(t, decoder.Decode(&errRes))
+				assert.Equal(t, tc.errMessage, errRes.Error)
+			}
+
+		})
+	}
+}
+
+func TestHandlerMiddlewareAuthentication(t *testing.T) {
 	apiState := NewState(
 		database.New(dbPool),
 		&auth.Config{
@@ -114,7 +206,7 @@ func TestHandlerMiddlewareLogin(t *testing.T) {
 				req.Header.Set("X-Refresh-Token", "Token "+tc.refreshTokenString)
 			}
 
-			handler := apiState.HandlerMiddlewareLogin(checkContextNext(t, userID))
+			handler := apiState.HandlerMiddlewareAuthentication(checkContextNext(t, userID))
 			handler.ServeHTTP(rr, req)
 			require.Equal(t, tc.statusCode, rr.Code)
 

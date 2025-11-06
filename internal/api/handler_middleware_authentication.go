@@ -7,6 +7,8 @@ import (
 
 	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type contextKey int
@@ -25,7 +27,7 @@ func UserFromContext(ctx context.Context) (uuid.UUID, bool) {
 	return userID, ok
 }
 
-func (s *State) HandlerMiddlewareLogin(next http.HandlerFunc) http.HandlerFunc {
+func (s *State) HandlerMiddlewareAuthentication(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenString, errToken := auth.GetHeaderValueToken(r.Header, "Auth")
 		refreshTokenString, errRefreshToken := auth.GetHeaderValueToken(r.Header, "X-Refresh-Token")
@@ -70,5 +72,28 @@ func (s *State) HandlerMiddlewareLogin(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		respondWithError(w, http.StatusUnauthorized, "JWT and refresh token not found in the headers", nil)
+	})
+}
+
+func (s *State) HandlerMiddlewareAdminOnly(next http.HandlerFunc) http.HandlerFunc {
+	return s.HandlerMiddlewareAuthentication(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		userID, _ := UserFromContext(ctx)
+
+		user, err := s.db.GetUser(ctx, pgtype.UUID{Bytes: userID, Valid: true})
+		if err == pgx.ErrNoRows {
+			respondWithError(w, http.StatusUnauthorized, "could not retrieve user from the database", err)
+			return
+		} else if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "could not fetch the user from the database", err)
+			return
+		}
+
+		if !user.IsAdmin.Valid || !user.IsAdmin.Bool {
+			respondWithError(w, http.StatusForbidden, "admin access required", nil)
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }
