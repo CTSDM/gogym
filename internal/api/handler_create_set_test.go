@@ -22,6 +22,7 @@ func TestCreateSet(t *testing.T) {
 		order        int32
 		restTime     int32
 		statusCode   int
+		exerciseID   int32
 		sessionIDStr string
 		hasEmptyJSON bool
 		errMessage   string
@@ -56,6 +57,12 @@ func TestCreateSet(t *testing.T) {
 			statusCode: http.StatusCreated,
 		},
 		{
+			name:       "exercise id not found",
+			restTime:   -1,
+			exerciseID: -100,
+			statusCode: http.StatusNotFound,
+		},
+		{
 			name:       "rest time value too large",
 			restTime:   maxRestTimeSeconds + 1,
 			statusCode: http.StatusBadRequest,
@@ -63,6 +70,9 @@ func TestCreateSet(t *testing.T) {
 		},
 	}
 
+	require.NoError(t, cleanup("sessions"))
+	require.NoError(t, cleanup("exercises"))
+	exerciseID := createExerciseDBTestHelper(t, apiState, "pull ups")
 	sessionID := createSessionDBTestHelper(t, apiState, "test name")
 
 	for _, tc := range testCases {
@@ -74,9 +84,15 @@ func TestCreateSet(t *testing.T) {
 				reader = bytes.NewReader([]byte("{}"))
 			} else {
 				reqParams := createSetReq{
-					RestTime: tc.restTime,
-					SetOrder: tc.order,
+					RestTime:   tc.restTime,
+					SetOrder:   tc.order,
+					ExerciseID: exerciseID,
 				}
+
+				if tc.exerciseID != 0 {
+					reqParams.ExerciseID = tc.exerciseID
+				}
+
 				body, err := json.Marshal(reqParams)
 				require.NoError(t, err, "unexpected JSON marshal error")
 				reader = bytes.NewReader(body)

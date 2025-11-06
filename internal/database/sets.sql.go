@@ -12,31 +12,38 @@ import (
 )
 
 const createSet = `-- name: CreateSet :one
-INSERT INTO sets (set_order, rest_time, session_id)
-VALUES ($1, $2, $3)
-RETURNING id, set_order, rest_time, session_id
+INSERT INTO sets (set_order, rest_time, session_id, exercise_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id, set_order, rest_time, session_id, exercise_id
 `
 
 type CreateSetParams struct {
-	SetOrder  int32
-	RestTime  pgtype.Int4
-	SessionID pgtype.UUID
+	SetOrder   int32
+	RestTime   pgtype.Int4
+	SessionID  pgtype.UUID
+	ExerciseID int32
 }
 
 func (q *Queries) CreateSet(ctx context.Context, arg CreateSetParams) (Set, error) {
-	row := q.db.QueryRow(ctx, createSet, arg.SetOrder, arg.RestTime, arg.SessionID)
+	row := q.db.QueryRow(ctx, createSet,
+		arg.SetOrder,
+		arg.RestTime,
+		arg.SessionID,
+		arg.ExerciseID,
+	)
 	var i Set
 	err := row.Scan(
 		&i.ID,
 		&i.SetOrder,
 		&i.RestTime,
 		&i.SessionID,
+		&i.ExerciseID,
 	)
 	return i, err
 }
 
 const getSet = `-- name: GetSet :one
-SELECT id, set_order, rest_time, session_id FROM sets
+SELECT id, set_order, rest_time, session_id, exercise_id FROM sets
 WHERE id = $1
 `
 
@@ -48,6 +55,7 @@ func (q *Queries) GetSet(ctx context.Context, id int64) (Set, error) {
 		&i.SetOrder,
 		&i.RestTime,
 		&i.SessionID,
+		&i.ExerciseID,
 	)
 	return i, err
 }

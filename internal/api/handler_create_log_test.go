@@ -118,9 +118,13 @@ func TestHandlerCreateLog(t *testing.T) {
 		},
 	}
 
+	require.NoError(t, cleanup("sessions"))
+	require.NoError(t, cleanup("sets"))
+	require.NoError(t, cleanup("exercises"))
+
 	sessionID := createSessionDBTestHelper(t, apiState, "test session")
-	setID := createSetDBTestHelper(t, apiState, sessionID)
 	exerciseID := createExerciseDBTestHelper(t, apiState, "pull ups")
+	setID := createSetDBTestHelper(t, apiState, sessionID, exerciseID)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
