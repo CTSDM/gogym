@@ -3,3 +3,5 @@ scripts/
 .env
 bruno/
 testing/
+openapi.yaml
+frontend/
