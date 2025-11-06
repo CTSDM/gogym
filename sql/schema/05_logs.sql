@@ -9,8 +9,7 @@ CREATE TABLE logs(
     exercise_id INTEGER NOT NULL,
     set_id BIGINT NOT NULL,
     CONSTRAINT fk_exercise_id FOREIGN KEY(exercise_id)
-    REFERENCES exercises(id)
-    ON DELETE CASCADE,
+    REFERENCES exercises(id),
     CONSTRAINT fk_set_id FOREIGN KEY(set_id)
     REFERENCES sets(id)
     ON DELETE CASCADE

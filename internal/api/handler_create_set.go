@@ -2,17 +2,21 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type createSetReq struct {
-	SetOrder int32 `json:"set_order"`
-	RestTime int32 `json:"rest_time"`
+	ExerciseID int32 `json:"exercise_id"`
+	SetOrder   int32 `json:"set_order"`
+	RestTime   int32 `json:"rest_time"`
 }
 
 type createSetRes struct {
@@ -44,15 +48,19 @@ func (s *State) HandlerCreateSet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check session id against database
-	if _, err := s.db.GetSession(r.Context(), pgtype.UUID{Bytes: sessionID, Valid: true}); err != nil {
+	if _, err := s.db.GetSession(r.Context(), pgtype.UUID{Bytes: sessionID, Valid: true}); err == pgx.ErrNoRows {
 		respondWithError(w, http.StatusNotFound, "session ID not found", err)
+		return
+	} else if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "something went wrong while fetching the session", err)
 		return
 	}
 
 	// Record the set into the database
 	dbParams := database.CreateSetParams{
-		SessionID: pgtype.UUID{Bytes: sessionID, Valid: true},
-		SetOrder:  requestParams.SetOrder,
+		SessionID:  pgtype.UUID{Bytes: sessionID, Valid: true},
+		SetOrder:   requestParams.SetOrder,
+		ExerciseID: requestParams.ExerciseID,
 	}
 	// negative rest time values will be considered to be null
 	if requestParams.RestTime >= 0 {
@@ -61,6 +69,11 @@ func (s *State) HandlerCreateSet(w http.ResponseWriter, r *http.Request) {
 
 	set, err := s.db.CreateSet(r.Context(), dbParams)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			respondWithError(w, http.StatusNotFound, "exercise id not found", err)
+			return
+		}
 		respondWithError(w, http.StatusInternalServerError, "could not create the set", err)
 		return
 	}

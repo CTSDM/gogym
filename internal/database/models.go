@@ -43,10 +43,11 @@ type Session struct {
 }
 
 type Set struct {
-	ID        int64
-	SetOrder  int32
-	RestTime  pgtype.Int4
-	SessionID pgtype.UUID
+	ID         int64
+	SetOrder   int32
+	RestTime   pgtype.Int4
+	SessionID  pgtype.UUID
+	ExerciseID int32
 }
 
 type User struct {
