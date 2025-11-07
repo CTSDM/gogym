@@ -12,6 +12,7 @@ import (
 	"github.com/CTSDM/gogym/internal/api"
 	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
@@ -23,6 +24,9 @@ func main() {
 	dbQueries, err := getDB()
 	if err != nil {
 		log.Fatalf("could not connect to the database: %s", err.Error())
+	}
+	if err := initialSetup(dbQueries); err != nil {
+		log.Fatalf("could not set the initial setup: %s", err)
 	}
 	authConfig, err := getAuthConfig()
 	if err != nil {
@@ -58,6 +62,51 @@ func getAuthConfig() (*auth.Config, error) {
 		JWTDuration:          time.Duration(jwtDurationInt) * time.Second,
 		RefreshTokenDuration: time.Duration(refreshTokenDurationInt) * time.Second,
 	}, nil
+}
+
+func dbSetup(db *database.Queries, username, password string) error {
+	// check if the admin exists
+	user, err := db.GetUserByUsername(context.Background(), username)
+	switch err {
+	case nil:
+		if user.IsAdmin.Bool {
+			log.Println("Admin found on the database")
+			return nil
+		} else {
+			return errors.New("found user instead of admin when setting up the admin")
+		}
+	case pgx.ErrNoRows:
+	default:
+		return fmt.Errorf("something went wrong while fetching the user from the database: %s", err)
+	}
+
+	// create the admin
+	hashed, err := auth.HashPassword(password)
+	if err != nil {
+		return fmt.Errorf("could not generate the hashed password: %s", err)
+	}
+	if _, err := db.CreateAdmin(context.Background(), database.CreateAdminParams{
+		Username:       username,
+		HashedPassword: hashed,
+	}); err != nil {
+		return fmt.Errorf("something went wrong while creating the admin: %s", err)
+	}
+
+	return nil
+}
+
+func initialSetup(db *database.Queries) error {
+	adminUsername, ok := os.LookupEnv("ADMIN_USERNAME")
+	if !ok {
+		return errors.New("failed to obtain the admin username")
+	}
+	adminPassword, ok := os.LookupEnv("ADMIN_PASSWORD")
+	if !ok {
+		return errors.New("failed to obtain the admin password")
+	}
+
+	return dbSetup(db, adminUsername, adminPassword)
+
 }
 
 func getDB() (*database.Queries, error) {
