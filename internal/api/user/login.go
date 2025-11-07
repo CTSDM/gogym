@@ -27,7 +27,7 @@ type loginRes struct {
 	Token        string `json:"token"`
 }
 
-func HandlerLogin(db *database.Queries, authConfig auth.Config) http.HandlerFunc {
+func HandlerLogin(db *database.Queries, authConfig *auth.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := loginReq{}
 		defer r.Body.Close()

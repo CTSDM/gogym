@@ -41,8 +41,7 @@ func UserFromContext(ctx context.Context) (uuid.UUID, bool) {
 	return userID, ok
 }
 
-// (db *database.Queries, authConfig auth.Config)
-func Authentication(db *database.Queries, authConfig auth.Config) func(next http.HandlerFunc) http.HandlerFunc {
+func Authentication(db *database.Queries, authConfig *auth.Config) func(next http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tokenString, errToken := auth.GetHeaderValueToken(r.Header, "Auth")
@@ -92,7 +91,7 @@ func Authentication(db *database.Queries, authConfig auth.Config) func(next http
 	}
 }
 
-func AdminOnly(db *database.Queries, authConfig auth.Config) func(next http.HandlerFunc) http.HandlerFunc {
+func AdminOnly(db *database.Queries) func(next http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -32,8 +33,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not set up the auth config: %s", err.Error())
 	}
-	apiState := api.NewState(dbQueries, *authConfig)
-	log.Fatalf("something went wrong while setting up the server: %s", apiState.SetupServer().Error())
+	server := api.NewServer(dbQueries, authConfig)
+
+	httpServer := &http.Server{
+		Addr:        ":" + "8080",
+		Handler:     server,
+		ReadTimeout: 10 * time.Second,
+	}
+
+	log.Printf("Serving on port: %s \n", "8080")
+	log.Fatal(httpServer.ListenAndServe())
+
 }
 
 func getAuthConfig() (*auth.Config, error) {

@@ -97,7 +97,7 @@ func Cleanup(dbPool *pgxpool.Pool, tableTarget string) error {
 	return nil
 }
 
-func CreateTokensDBHelperTest(t testing.TB, db *database.Queries, authConfig auth.Config, userID uuid.UUID) (string, string) {
+func CreateTokensDBHelperTest(t testing.TB, db *database.Queries, authConfig *auth.Config, userID uuid.UUID) (string, string) {
 	refreshToken, err := auth.MakeRefreshToken()
 	require.NoError(t, err)
 	jwt, err := auth.MakeJWT(userID.String(), authConfig.JWTsecret, authConfig.JWTDuration)
