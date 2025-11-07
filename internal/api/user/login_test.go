@@ -201,17 +201,24 @@ func TestValidateLogin(t *testing.T) {
 		username string
 		password string
 		hasError bool
+		errMap   map[string]string
 	}{
 		{
 			name:     "invalid username",
 			username: "",
 			password: "somepassword",
+			errMap: map[string]string{
+				"username": "invalid username",
+			},
 			hasError: true,
 		},
 		{
 			name:     "invalid password",
 			username: "someusername",
 			password: "",
+			errMap: map[string]string{
+				"password": "invalid password",
+			},
 			hasError: true,
 		},
 		{
@@ -223,15 +230,23 @@ func TestValidateLogin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			loginReqParams := loginReq{
+			reqParams := loginReq{
 				Username: tc.username,
 				Password: tc.password,
 			}
-			err := validateLogin(loginReqParams)
-			if tc.hasError == true {
-				assert.Error(t, err)
+			problems := reqParams.Valid(context.Background())
+			if tc.hasError {
+				require.Greater(t, len(problems), 0)
+				for key, value := range tc.errMap {
+					got, ok := problems[key]
+					if !ok {
+						t.Errorf("key not found: %s", key)
+					} else {
+						assert.Contains(t, got, value)
+					}
+				}
 			} else {
-				assert.NoError(t, err)
+				require.Equal(t, 0, len(problems))
 			}
 		})
 	}

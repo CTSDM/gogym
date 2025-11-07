@@ -25,7 +25,7 @@ func TestCreateSet(t *testing.T) {
 		exerciseID   int32
 		sessionIDStr string
 		hasEmptyJSON bool
-		errMessage   string
+		errMessage   []string
 	}{
 		{
 			name:       "happy path",
@@ -37,19 +37,19 @@ func TestCreateSet(t *testing.T) {
 			name:         "invalid session id",
 			sessionIDStr: "notvalid",
 			statusCode:   http.StatusNotFound,
-			errMessage:   "session ID not found",
+			errMessage:   []string{"session ID not found"},
 		},
 		{
 			name:       "invalid order",
 			order:      -1,
 			statusCode: http.StatusBadRequest,
-			errMessage: "must be greater",
+			errMessage: []string{"invalid order"},
 		},
 		{
 			name:         "session id not found",
 			sessionIDStr: uuid.NewString(),
 			statusCode:   http.StatusNotFound,
-			errMessage:   "session ID not found",
+			errMessage:   []string{"session ID not found"},
 		},
 		{
 			name:       "negative rest time should return 0 value",
@@ -66,7 +66,7 @@ func TestCreateSet(t *testing.T) {
 			name:       "rest time value too large",
 			restTime:   apiconstants.MaxRestTimeSeconds + 1,
 			statusCode: http.StatusBadRequest,
-			errMessage: "must be less than",
+			errMessage: []string{"must be less than"},
 		},
 	}
 
@@ -114,7 +114,9 @@ func TestCreateSet(t *testing.T) {
 				t.Fatalf("Body response: %s", rr.Body.String())
 			}
 			if tc.statusCode > 399 {
-				assert.Contains(t, rr.Body.String(), tc.errMessage)
+				for _, msg := range tc.errMessage {
+					assert.Contains(t, rr.Body.String(), msg)
+				}
 				return
 			} else {
 				// check the body to make sure

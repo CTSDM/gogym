@@ -1,12 +1,12 @@
 package exlog
 
 import (
-	"encoding/json"
-	"errors"
+	"context"
 	"net/http"
 	"strconv"
 
 	"github.com/CTSDM/gogym/internal/api/util"
+	"github.com/CTSDM/gogym/internal/api/validation"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -24,6 +24,27 @@ type createLogRes struct {
 	createLogReq
 }
 
+func (r *createLogReq) Valid(ctx context.Context) map[string]string {
+	problems := make(map[string]string)
+	// weight validation
+	// negative values are mapped to 0
+	if r.Weight < 0 {
+		r.Weight = 0
+	}
+
+	// order validation
+	if r.Order < 0 {
+		problems["order"] = "invalid order: log order must be positive"
+	}
+
+	// reps validation
+	if r.Reps <= 0 {
+		problems["reps"] = "invalid reps: reps must be positive"
+	}
+
+	return problems
+}
+
 func HandlerCreateLog(db *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// set id must be a valid number
@@ -32,18 +53,13 @@ func HandlerCreateLog(db *database.Queries) http.HandlerFunc {
 			util.RespondWithError(w, http.StatusNotFound, "set ID not found", err)
 			return
 		}
-		// Decode the incoming json
-		var requestParams createLogReq
-		defer r.Body.Close()
-		decoder := json.NewDecoder(r.Body)
-		if err := decoder.Decode(&requestParams); err != nil {
-			util.RespondWithError(w, http.StatusBadRequest, "Invalid payload", err)
-			return
-		}
 
-		// Validate request
-		if err := requestParams.validate(); err != nil {
-			util.RespondWithError(w, http.StatusBadRequest, err.Error(), nil)
+		reqParams, problems, err := validation.DecodeValid[*createLogReq](r)
+		if len(problems) > 0 {
+			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			return
+		} else if err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -53,18 +69,18 @@ func HandlerCreateLog(db *database.Queries) http.HandlerFunc {
 			return
 		}
 		// Check exercise id against database
-		if _, err := db.GetExercise(r.Context(), requestParams.ExerciseID); err != nil {
-			util.RespondWithError(w, http.StatusNotFound, "exercise id does not exist", err)
+		if _, err := db.GetExercise(r.Context(), reqParams.ExerciseID); err != nil {
+			util.RespondWithError(w, http.StatusNotFound, "exercise id not found", err)
 			return
 		}
 
 		// Record the log into the database
 		dbParams := database.CreateLogParams{
-			Weight:     pgtype.Float8{Float64: requestParams.Weight, Valid: true},
-			Reps:       requestParams.Reps,
-			LogsOrder:  requestParams.Order,
+			Weight:     pgtype.Float8{Float64: reqParams.Weight, Valid: true},
+			Reps:       reqParams.Reps,
+			LogsOrder:  reqParams.Order,
 			SetID:      int64(setID),
-			ExerciseID: requestParams.ExerciseID,
+			ExerciseID: reqParams.ExerciseID,
 		}
 		newLog, err := db.CreateLog(r.Context(), dbParams)
 		if err != nil {
@@ -76,30 +92,11 @@ func HandlerCreateLog(db *database.Queries) http.HandlerFunc {
 			ID:    newLog.ID,
 			SetID: int64(setID),
 			createLogReq: createLogReq{
-				ExerciseID: requestParams.ExerciseID,
-				Weight:     requestParams.Weight,
-				Reps:       requestParams.Reps,
-				Order:      requestParams.Order,
+				ExerciseID: newLog.ExerciseID,
+				Weight:     newLog.Weight.Float64,
+				Reps:       newLog.Reps,
+				Order:      newLog.LogsOrder,
 			},
 		})
 	}
-}
-
-func (r *createLogReq) validate() error {
-	// weight validation
-	if r.Weight < 0 {
-		r.Weight = 0
-	}
-
-	// order validation
-	if r.Order < 0 {
-		return errors.New("log order cannot be less than zero")
-	}
-
-	// reps validation
-	if r.Reps <= 0 {
-		return errors.New("reps cannot be less than zero")
-	}
-
-	return nil
 }

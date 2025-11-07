@@ -13,7 +13,6 @@ import (
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
-	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
@@ -25,7 +24,7 @@ func TestHandlerCreateSession(t *testing.T) {
 	testCases := []struct {
 		testName        string
 		statusCode      int
-		errMsg          string
+		errMsg          []string
 		userNotFound    bool
 		missingContext  bool
 		hasJSON         bool
@@ -39,12 +38,12 @@ func TestHandlerCreateSession(t *testing.T) {
 			testName:       "user not found in context",
 			missingContext: true,
 			statusCode:     http.StatusInternalServerError,
-			errMsg:         "Could not find user id in request context",
+			errMsg:         []string{"Could not find user id in request context"},
 		},
 		{
 			testName:   "no JSON sent",
 			statusCode: http.StatusBadRequest,
-			errMsg:     "Invalid payload",
+			errMsg:     []string{"invalid payload"},
 		},
 		{
 			testName:     "empty JSON",
@@ -69,21 +68,21 @@ func TestHandlerCreateSession(t *testing.T) {
 			date:       "name",
 			statusCode: http.StatusBadRequest,
 			hasJSON:    true,
-			errMsg:     "could not validate the date",
+			errMsg:     []string{"invalid date"},
 		},
 		{
 			testName:       "JSON with invalid time start",
 			startTimestamp: -10,
 			statusCode:     http.StatusBadRequest,
 			hasJSON:        true,
-			errMsg:         "start timestamp",
+			errMsg:         []string{"invalid start_timestamp"},
 		},
 		{
 			testName:        "JSON with invalid duration",
 			durationMinutes: -3,
 			statusCode:      http.StatusBadRequest,
 			hasJSON:         true,
-			errMsg:          "duration must be",
+			errMsg:          []string{"invalid duration_minutes"},
 		},
 		{
 			testName:        "json filled with valid values",
@@ -146,15 +145,14 @@ func TestHandlerCreateSession(t *testing.T) {
 			// Call the function
 			HandlerCreateSession(db).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
-				t.Fail()
+				assert.Equal(t, tc.statusCode, rr.Code)
 				t.Logf("Response body: %s", rr.Body.String())
 				return
 			}
 			if tc.statusCode > 399 {
-				var resParams util.ErrorResponse
-				decoder := json.NewDecoder(rr.Body)
-				require.NoError(t, decoder.Decode(&resParams))
-				assert.Contains(t, resParams.Error, tc.errMsg)
+				for _, message := range tc.errMsg {
+					assert.Contains(t, rr.Body.String(), message)
+				}
 				return
 			} else if tc.statusCode == http.StatusCreated {
 				var resParams createSessionRes
@@ -190,7 +188,7 @@ func TestValidateCreateSession(t *testing.T) {
 		startTimestamp  int64
 		durationMinutes int
 		hasError        bool
-		errMessage      string
+		errMap          map[string]string
 		populate        bool
 	}{
 		{
@@ -203,36 +201,38 @@ func TestValidateCreateSession(t *testing.T) {
 			date:     "2025-10-10",
 		},
 		{
-			testName:   "empty name",
-			errMessage: "name cannot be empty",
-			hasError:   true,
+			testName: "empty name",
 		},
 		{
-			testName:   "very large name",
-			name:       string(make([]byte, apiconstants.MaxSessionNameLength+10)),
-			errMessage: "could not validate the name",
-			hasError:   true,
+			testName: "very large name",
+			name:     string(make([]byte, apiconstants.MaxSessionNameLength+10)),
+			errMap: map[string]string{
+				"name": "invalid name",
+			},
+			hasError: true,
 		},
 		{
-			testName:   "valid name but wrong date",
-			name:       "name",
-			date:       "2025-31-01",
-			errMessage: "could not validate the date",
-			hasError:   true,
+			testName: "valid name but wrong date",
+			name:     "name",
+			date:     "2025-31-01",
+			errMap: map[string]string{
+				"date": "invalid date",
+			},
+			hasError: true,
 		},
 		{
-			testName:   "empty date",
-			name:       "name",
-			date:       "",
-			errMessage: "date cannot be empty",
-			hasError:   true,
+			testName: "empty date",
+			name:     "name",
+			date:     "",
 		},
 		{
 			testName:        "invalid duration minutes > MaxInt16",
-			errMessage:      "duration must be between",
 			durationMinutes: math.MaxInt16 + 1,
-			hasError:        true,
-			populate:        true,
+			errMap: map[string]string{
+				"duration_minutes": "invalid duration_minutes",
+			},
+			hasError: true,
+			populate: true,
 		},
 		{
 			testName:        "max duration in minutes",
@@ -243,22 +243,28 @@ func TestValidateCreateSession(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			req := createSessionReq{
+			reqParams := createSessionReq{
 				Name:            tc.name,
 				Date:            tc.date,
 				StartTimestamp:  tc.startTimestamp,
 				DurationMinutes: tc.durationMinutes,
 			}
 			if tc.populate {
-				req.populate()
+				reqParams.populate()
 			}
-			_, _, err := req.validate()
-
+			problems := reqParams.Valid(context.Background())
 			if tc.hasError {
-				require.Error(t, err, "should not validate")
-				assert.Contains(t, err.Error(), tc.errMessage)
+				require.Greater(t, len(problems), 0)
+				for key, value := range tc.errMap {
+					got, ok := problems[key]
+					if !ok {
+						t.Errorf("key not found: %s", key)
+					} else {
+						assert.Contains(t, got, value)
+					}
+				}
 			} else {
-				require.NoError(t, err, "should validate")
+				require.Equal(t, 0, len(problems))
 			}
 		})
 	}

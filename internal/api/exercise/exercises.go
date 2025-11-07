@@ -1,12 +1,13 @@
 package exercise
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/CTSDM/gogym/internal/api/util"
+	"github.com/CTSDM/gogym/internal/api/validation"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/jackc/pgx/v5"
@@ -33,19 +34,31 @@ type exercisesRes struct {
 	Exercises []exerciseItem `json:"exercises"`
 }
 
+func (r createExerciseReq) Valid(ctx context.Context) map[string]string {
+	problems := make(map[string]string)
+	// name validation
+	if err := validation.String(r.Name, 0, apiconstants.MaxExerciseLength); err != nil {
+		problems["name"] = fmt.Sprintf("invalid name: %s", err.Error())
+	}
+
+	// description validation; it is an optinal field so there is no minimum length
+	if err := validation.String(r.Description, -1, apiconstants.MaxDescriptionLength); err != nil {
+		problems["description"] = fmt.Sprintf("invalid description: %s", err.Error())
+	}
+
+	return problems
+}
+
 func HandlerCreateExercise(db *database.Queries) http.HandlerFunc {
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Decode json into the expected structure
-		var reqParams createExerciseReq
-		defer r.Body.Close()
-		decoder := json.NewDecoder(r.Body)
-		if err := decoder.Decode(&reqParams); err != nil {
-			util.RespondWithError(w, http.StatusBadRequest, "could not parse JSON", err)
-		}
-
-		// Validate
-		if err := reqParams.validate(); err != nil {
-			util.RespondWithError(w, http.StatusBadRequest, err.Error(), nil)
+		reqParams, problems, err := validation.DecodeValid[createExerciseReq](r)
+		if len(problems) > 0 {
+			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			return
+		} else if err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -109,18 +122,4 @@ func HandlerGetExercise(db *database.Queries) http.HandlerFunc {
 			Description: exerciseDB.Description.String,
 		})
 	}
-}
-
-func (r *createExerciseReq) validate() error {
-	// name validation
-	if err := util.ValidateString(r.Name, 0, apiconstants.MaxExerciseLength); err != nil {
-		return fmt.Errorf("could not validate the name: %w", err)
-	}
-
-	// description validation; it is an optinal field so there is no minimum length
-	if err := util.ValidateString(r.Description, -1, apiconstants.MaxDescriptionLength); err != nil {
-		return fmt.Errorf("could not validate the name: %w", err)
-	}
-
-	return nil
 }

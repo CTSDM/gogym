@@ -1,8 +1,7 @@
 package session
 
 import (
-	"encoding/json"
-	"errors"
+	"context"
 	"fmt"
 	"math"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/util"
+	"github.com/CTSDM/gogym/internal/api/validation"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -20,11 +20,56 @@ type createSessionReq struct {
 	Date            string `json:"date"`
 	StartTimestamp  int64  `json:"start_timestamp"` // UTC
 	DurationMinutes int    `json:"duration_minutes"`
+
+	date            time.Time
+	startTimestamp  time.Time
+	durationMinutes int16
 }
 
 type createSessionRes struct {
 	ID string `json:"id"`
 	createSessionReq
+}
+
+// This method also populates with default values
+func (r *createSessionReq) Valid(ctx context.Context) map[string]string {
+	r.populate()
+	problems := make(map[string]string)
+
+	// session name validation
+	if r.Name == "" {
+		problems["name"] = "invalid name: name cannot be empty"
+	}
+	if err := validation.String(r.Name, apiconstants.MinSessionNameLength, apiconstants.MaxSessionNameLength); err != nil {
+		problems["name"] = "invalid name: " + err.Error()
+	}
+
+	// date validation
+	date, err := validation.Date(r.Date, apiconstants.DATE_LAYOUT, nil, nil)
+	if err != nil {
+		problems["date"] = "invalid date: " + err.Error()
+	}
+	r.date = date
+
+	// start timestamp validation
+	if r.StartTimestamp < 0 {
+		problems["start_timestamp"] = "invalid start_timestamp: start_timestamp must be greater than UNIX epoch"
+	}
+	r.startTimestamp = time.Unix(r.StartTimestamp, 0).UTC()
+
+	// duration minutes validation
+	if r.DurationMinutes < 0 {
+		problems["duration_minutes"] = "invalid duration_minutes: duration_minutes must be between 1 and %d minutes"
+	} else {
+		if r.DurationMinutes > math.MaxInt16 {
+			problems["duration_minutes"] = fmt.Sprintf(
+				"invalid duration_minutes: duration_minutes must be between 1 and %d mminutes",
+				math.MaxUint16)
+		}
+		r.durationMinutes = int16(r.DurationMinutes)
+	}
+
+	return problems
 }
 
 func HandlerCreateSession(db *database.Queries) http.HandlerFunc {
@@ -43,38 +88,23 @@ func HandlerCreateSession(db *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		// Decode the incoming json
-		var requestParams createSessionReq
-		defer r.Body.Close()
-		decoder := json.NewDecoder(r.Body)
-		if err := decoder.Decode(&requestParams); err != nil {
-			util.RespondWithError(w, http.StatusBadRequest, "Invalid payload", err)
-			return
-		}
-
 		// Populate and validate the incoming request
-		requestParams.populate()
-		date, startTimestamp, err := requestParams.validate()
-		if err != nil {
-			util.RespondWithError(w, http.StatusBadRequest, err.Error(), nil)
+		reqParams, problems, err := validation.DecodeValid[*createSessionReq](r)
+		if len(problems) > 0 {
+			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			return
+		} else if err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
 		// Fill the database object and create the session
 		dbParams := database.CreateSessionParams{
-			Name:   requestParams.Name,
-			Date:   pgtype.Date{Time: date, Valid: true},
-			UserID: pgtype.UUID{Bytes: userID, Valid: true},
-		}
-		if requestParams.StartTimestamp > 0 {
-			dbParams.StartTimestamp.Time = startTimestamp
-			dbParams.StartTimestamp.Valid = true
-		}
-		if requestParams.DurationMinutes > 0 {
-			if requestParams.DurationMinutes <= math.MaxInt16 {
-				dbParams.DurationMinutes.Int16 = int16(requestParams.DurationMinutes)
-				dbParams.DurationMinutes.Valid = true
-			}
+			Name:            reqParams.Name,
+			Date:            pgtype.Date{Time: reqParams.date, Valid: true},
+			UserID:          pgtype.UUID{Bytes: userID, Valid: true},
+			StartTimestamp:  pgtype.Timestamp{Time: reqParams.startTimestamp, Valid: true},
+			DurationMinutes: pgtype.Int2{Int16: reqParams.durationMinutes, Valid: true},
 		}
 
 		session, err := db.CreateSession(r.Context(), dbParams)
@@ -94,42 +124,6 @@ func HandlerCreateSession(db *database.Queries) http.HandlerFunc {
 				},
 			})
 	}
-}
-
-// Validate needed fields: name and date
-func (r *createSessionReq) validate() (date time.Time, timeStart time.Time, err error) {
-	// session name validation
-	if r.Name == "" {
-		return time.Time{}, time.Time{}, errors.New("name cannot be empty")
-	}
-	if err := util.ValidateString(r.Name, apiconstants.MinSessionNameLength, apiconstants.MaxSessionNameLength); err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("could not validate the name: %w", err)
-	}
-
-	// date validation
-	if r.Date == "" {
-		return time.Time{}, time.Time{}, errors.New("date cannot be empty")
-	}
-	date, err = util.ValidateDate(r.Date, apiconstants.DATE_LAYOUT, nil, nil)
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("could not validate the date: %w", err)
-	}
-
-	// start timestamp validation
-	if r.StartTimestamp < 0 {
-		return time.Time{}, time.Time{}, errors.New("start timestamp must be greater than UNIX epoch")
-	}
-	timeStart = time.Unix(r.StartTimestamp, 0).UTC()
-
-	// duration minutes validation
-	if r.DurationMinutes < 0 {
-		return time.Time{}, time.Time{}, fmt.Errorf("workout duration must be between 1 and %d minutes", math.MaxInt16)
-	} else {
-		if r.DurationMinutes > math.MaxInt16 {
-			return time.Time{}, time.Time{}, fmt.Errorf("workout duration must be between 1 and %d minutes", math.MaxInt16)
-		}
-	}
-	return date, timeStart, nil
 }
 
 // Populate needed empty fields: name and date
