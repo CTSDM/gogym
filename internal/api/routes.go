@@ -1,9 +1,7 @@
 package api
 
 import (
-	"log"
 	"net/http"
-	"time"
 
 	"github.com/CTSDM/gogym/internal/api/exercise"
 	"github.com/CTSDM/gogym/internal/api/exlog"
@@ -15,59 +13,41 @@ import (
 	"github.com/CTSDM/gogym/internal/database"
 )
 
-type State struct {
-	db         *database.Queries
-	authConfig auth.Config
-}
-
-func NewState(db *database.Queries, auth auth.Config) *State {
-	return &State{
-		db:         db,
-		authConfig: auth,
-	}
-}
-
-func (s *State) SetupServer() error {
+func NewServer(db *database.Queries, authConfig *auth.Config) http.Handler {
 	serveMux := http.NewServeMux()
+	addRoutes(serveMux, db, authConfig)
+	return serveMux
+}
 
+func addRoutes(mux *http.ServeMux, db *database.Queries, authConfig *auth.Config) {
 	// login endpoint
-	serveMux.HandleFunc("POST /api/v1/login", user.HandlerLogin(s.db, s.authConfig))
+	mux.HandleFunc("POST /api/v1/login", user.HandlerLogin(db, authConfig))
 
 	// users endpoints
-	serveMux.HandleFunc("POST /api/v1/users", user.HandlerCreateUser(s.db))
-	serveMux.HandleFunc("GET /api/v1/users/{id}",
-		middleware.Authentication(s.db, s.authConfig)(user.HandlerGetUser(s.db)))
-	serveMux.HandleFunc("GET /api/v1/users",
-		middleware.Authentication(s.db, s.authConfig)(
-			(middleware.AdminOnly(s.db, s.authConfig))(user.HandlerGetUsers(s.db)),
+	mux.HandleFunc("POST /api/v1/users", user.HandlerCreateUser(db))
+	mux.HandleFunc("GET /api/v1/users/{id}",
+		middleware.Authentication(db, authConfig)(user.HandlerGetUser(db)))
+	mux.HandleFunc("GET /api/v1/users",
+		middleware.Authentication(db, authConfig)(
+			(middleware.AdminOnly(db))(user.HandlerGetUsers(db)),
 		),
 	)
 
 	// sessions endpoints
-	serveMux.HandleFunc("POST /api/v1/sessions",
-		middleware.Authentication(s.db, s.authConfig)(session.HandlerCreateSession(s.db)))
+	mux.HandleFunc("POST /api/v1/sessions",
+		middleware.Authentication(db, authConfig)(session.HandlerCreateSession(db)))
 
 	// sets endpoints
-	serveMux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets",
-		middleware.Authentication(s.db, s.authConfig)(set.HandlerCreateSet(s.db)))
+	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets",
+		middleware.Authentication(db, authConfig)(set.HandlerCreateSet(db)))
 
 	// logs endpoints
-	serveMux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets/{setID}/logs",
-		middleware.Authentication(s.db, s.authConfig)(exlog.HandlerCreateLog(s.db)))
+	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets/{setID}/logs",
+		middleware.Authentication(db, authConfig)(exlog.HandlerCreateLog(db)))
 
 	// exercises endpoints
-	serveMux.HandleFunc("GET /api/v1/exercises/{id}",
-		middleware.Authentication(s.db, s.authConfig)(exercise.HandlerGetExercise(s.db)))
-	serveMux.HandleFunc("GET /api/v1/exercises",
-		middleware.Authentication(s.db, s.authConfig)(exercise.HandlerGetExercises(s.db)))
-
-	// server setup
-	server := &http.Server{
-		Addr:        ":" + "8080",
-		Handler:     serveMux,
-		ReadTimeout: 10 * time.Second,
-	}
-
-	log.Printf("Serving on port: %s \n", "8080")
-	return server.ListenAndServe()
+	mux.HandleFunc("GET /api/v1/exercises/{id}",
+		middleware.Authentication(db, authConfig)(exercise.HandlerGetExercise(db)))
+	mux.HandleFunc("GET /api/v1/exercises",
+		middleware.Authentication(db, authConfig)(exercise.HandlerGetExercises(db)))
 }

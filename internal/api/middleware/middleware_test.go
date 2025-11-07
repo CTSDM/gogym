@@ -56,7 +56,7 @@ func TestAdminOnly(t *testing.T) {
 	}
 
 	db := database.New(dbPool)
-	authConfig := auth.Config{
+	authConfig := &auth.Config{
 		JWTsecret:            "somerandomsecret",
 		RefreshTokenDuration: time.Hour,
 		JWTDuration:          time.Minute,
@@ -105,7 +105,7 @@ func TestAdminOnly(t *testing.T) {
 			ctx := ContextWithUser(req.Context(), userID)
 			req = req.WithContext(ctx)
 
-			handler := AdminOnly(db, authConfig)(dummyHandler)
+			handler := AdminOnly(db)(dummyHandler)
 			handler.ServeHTTP(rr, req)
 
 			require.Equal(t, tc.statusCode, rr.Code)
@@ -175,7 +175,7 @@ func TestHandlerMiddlewareAuthentication(t *testing.T) {
 	require.NoError(t, testutil.Cleanup(dbPool, "users"), "failed to clean the database")
 
 	db := database.New(dbPool)
-	authConfig := auth.Config{
+	authConfig := &auth.Config{
 		JWTsecret:            "somerandomsecret",
 		RefreshTokenDuration: time.Hour,
 		JWTDuration:          time.Minute,

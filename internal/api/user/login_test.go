@@ -27,7 +27,7 @@ func TestHandlerLogin(t *testing.T) {
 	}
 
 	db := database.New(dbPool)
-	authConfig := auth.Config{
+	authConfig := &auth.Config{
 		JWTsecret:            "testSecret",
 		JWTDuration:          time.Minute,
 		RefreshTokenDuration: time.Hour,
