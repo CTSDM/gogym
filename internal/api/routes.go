@@ -20,34 +20,30 @@ func NewServer(db *database.Queries, authConfig *auth.Config) http.Handler {
 }
 
 func addRoutes(mux *http.ServeMux, db *database.Queries, authConfig *auth.Config) {
+	// middleware declaration
+	authentication := middleware.Authentication(db, authConfig)
+	admin := middleware.AdminOnly(db)
+
 	// login endpoint
 	mux.HandleFunc("POST /api/v1/login", user.HandlerLogin(db, authConfig))
 
 	// users endpoints
 	mux.HandleFunc("POST /api/v1/users", user.HandlerCreateUser(db))
 	mux.HandleFunc("GET /api/v1/users/{id}",
-		middleware.Authentication(db, authConfig)(user.HandlerGetUser(db)))
-	mux.HandleFunc("GET /api/v1/users",
-		middleware.Authentication(db, authConfig)(
-			(middleware.AdminOnly(db))(user.HandlerGetUsers(db)),
-		),
-	)
+		middleware.Chain(user.HandlerGetUser(db), authentication, admin))
+	mux.HandleFunc("GET /api/v1/users", middleware.Chain(user.HandlerGetUsers(db), authentication, admin))
 
 	// sessions endpoints
-	mux.HandleFunc("POST /api/v1/sessions",
-		middleware.Authentication(db, authConfig)(session.HandlerCreateSession(db)))
+	mux.HandleFunc("POST /api/v1/sessions", authentication(session.HandlerCreateSession(db)))
 
 	// sets endpoints
-	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets",
-		middleware.Authentication(db, authConfig)(set.HandlerCreateSet(db)))
+	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets", authentication(set.HandlerCreateSet(db)))
 
 	// logs endpoints
 	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets/{setID}/logs",
-		middleware.Authentication(db, authConfig)(exlog.HandlerCreateLog(db)))
+		authentication(exlog.HandlerCreateLog(db)))
 
 	// exercises endpoints
-	mux.HandleFunc("GET /api/v1/exercises/{id}",
-		middleware.Authentication(db, authConfig)(exercise.HandlerGetExercise(db)))
-	mux.HandleFunc("GET /api/v1/exercises",
-		middleware.Authentication(db, authConfig)(exercise.HandlerGetExercises(db)))
+	mux.HandleFunc("GET /api/v1/exercises/{id}", authentication(exercise.HandlerGetExercise(db)))
+	mux.HandleFunc("GET /api/v1/exercises", authentication(exercise.HandlerGetExercises(db)))
 }

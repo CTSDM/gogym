@@ -13,24 +13,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Middleware struct {
-	db         *database.Queries
-	authConfig *auth.Config
-}
-
-func NewMiddleware(db *database.Queries, authConfig *auth.Config) *Middleware {
-	return &Middleware{
-		db:         db,
-		authConfig: authConfig,
-	}
-}
-
 type contextKey int
 
 const (
 	_ contextKey = iota
 	userKey
 )
+
+// middlewares are applied from left from left to right
+func Chain(handler http.HandlerFunc, middlewares ...func(http.HandlerFunc) http.HandlerFunc) http.HandlerFunc {
+	for _, middleware := range middlewares {
+		handler = middleware(handler)
+	}
+	return handler
+}
 
 func ContextWithUser(ctx context.Context, userID uuid.UUID) context.Context {
 	return context.WithValue(ctx, userKey, userID)
