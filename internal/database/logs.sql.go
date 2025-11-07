@@ -67,3 +67,54 @@ func (q *Queries) GetLog(ctx context.Context, id int64) (Log, error) {
 	)
 	return i, err
 }
+
+const getLogOwnerID = `-- name: GetLogOwnerID :one
+SELECT sessions.user_id FROM logs
+LEFT JOIN sets
+ON logs.set_id = sets.id
+LEFT JOIN sessions
+ON sets.session_id = sessions.id
+WHERE logs.id = $1
+`
+
+func (q *Queries) GetLogOwnerID(ctx context.Context, id int64) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getLogOwnerID, id)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const updateLog = `-- name: UpdateLog :one
+UPDATE logs
+SET weight = $1, reps = $2, logs_order = $3
+WHERE id = $4
+RETURNING id, created_at, last_modified_at, weight, reps, logs_order, exercise_id, set_id
+`
+
+type UpdateLogParams struct {
+	Weight    pgtype.Float8
+	Reps      int32
+	LogsOrder int32
+	ID        int64
+}
+
+func (q *Queries) UpdateLog(ctx context.Context, arg UpdateLogParams) (Log, error) {
+	row := q.db.QueryRow(ctx, updateLog,
+		arg.Weight,
+		arg.Reps,
+		arg.LogsOrder,
+		arg.ID,
+	)
+	var i Log
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.LastModifiedAt,
+		&i.Weight,
+		&i.Reps,
+		&i.LogsOrder,
+		&i.ExerciseID,
+		&i.SetID,
+	)
+	return i, err
+}

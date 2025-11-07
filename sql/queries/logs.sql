@@ -6,3 +6,17 @@ RETURNING *;
 -- name: GetLog :one
 SELECT * FROM logs
 WHERE id = $1;
+
+-- name: UpdateLog :one
+UPDATE logs
+SET weight = $1, reps = $2, logs_order = $3
+WHERE id = $4
+RETURNING *;
+
+-- name: GetLogOwnerID :one
+SELECT sessions.user_id FROM logs
+LEFT JOIN sets
+ON logs.set_id = sets.id
+LEFT JOIN sessions
+ON sets.session_id = sessions.id
+WHERE logs.id = $1;

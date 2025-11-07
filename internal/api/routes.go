@@ -42,6 +42,7 @@ func addRoutes(mux *http.ServeMux, db *database.Queries, authConfig *auth.Config
 	// logs endpoints
 	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets/{setID}/logs",
 		authentication(exlog.HandlerCreateLog(db)))
+	mux.HandleFunc("PUT /api/v1/logs/{id}", authentication(exlog.HandlerUpdateLog(db)))
 
 	// exercises endpoints
 	mux.HandleFunc("GET /api/v1/exercises/{id}", authentication(exercise.HandlerGetExercise(db)))

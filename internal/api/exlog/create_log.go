@@ -11,20 +11,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type createLogReq struct {
+type logReq struct {
 	ExerciseID int32   `json:"exercise_id"`
 	Weight     float64 `json:"weight"`
 	Reps       int32   `json:"reps"`
 	Order      int32   `json:"order"`
 }
 
-type createLogRes struct {
+type logRes struct {
 	ID    int64 `json:"id"`
 	SetID int64 `json:"set_id"`
-	createLogReq
+	logReq
 }
 
-func (r *createLogReq) Valid(ctx context.Context) map[string]string {
+func (r *logReq) Valid(ctx context.Context) map[string]string {
 	problems := make(map[string]string)
 	// weight validation
 	// negative values are mapped to 0
@@ -54,7 +54,7 @@ func HandlerCreateLog(db *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		reqParams, problems, err := validation.DecodeValid[*createLogReq](r)
+		reqParams, problems, err := validation.DecodeValid[*logReq](r)
 		if len(problems) > 0 {
 			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
@@ -88,10 +88,10 @@ func HandlerCreateLog(db *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		util.RespondWithJSON(w, http.StatusCreated, createLogRes{
+		util.RespondWithJSON(w, http.StatusCreated, logRes{
 			ID:    newLog.ID,
 			SetID: int64(setID),
-			createLogReq: createLogReq{
+			logReq: logReq{
 				ExerciseID: newLog.ExerciseID,
 				Weight:     newLog.Weight.Float64,
 				Reps:       newLog.Reps,

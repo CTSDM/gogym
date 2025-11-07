@@ -143,18 +143,13 @@ func RandomString(length int) string {
 	return sb.String()
 }
 
-func CreateSessionDBTestHelper(t testing.TB, db *database.Queries, name string) uuid.UUID {
+func CreateSessionDBTestHelper(t testing.TB, db *database.Queries, name string, userID uuid.UUID) uuid.UUID {
 	// generate random string and random password to be used in the database
-	userID, err := db.CreateUser(context.Background(), database.CreateUserParams{
-		Username:       RandomString(10),
-		HashedPassword: RandomString(10),
-	})
-	require.NoError(t, err)
 	session, err := db.CreateSession(context.Background(),
 		database.CreateSessionParams{
 			Name:   name,
 			Date:   pgtype.Date{Time: time.Now(), Valid: true},
-			UserID: pgtype.UUID{Bytes: userID.ID.Bytes, Valid: true},
+			UserID: pgtype.UUID{Bytes: userID, Valid: true},
 		})
 	require.NoError(t, err)
 
@@ -190,4 +185,21 @@ func CreateExerciseWithDescDBTestHelper(t testing.TB, db *database.Queries, name
 	})
 	require.NoError(t, err)
 	return exercise.ID
+}
+
+func CreateLogExerciseDBTestHelper(
+	t testing.TB,
+	db *database.Queries,
+	reps, order, exerciseID int32,
+	setID int64,
+	weight float64) int64 {
+	newLog, err := db.CreateLog(context.Background(), database.CreateLogParams{
+		SetID:      setID,
+		ExerciseID: exerciseID,
+		Weight:     pgtype.Float8{Float64: weight, Valid: true},
+		Reps:       reps,
+		LogsOrder:  order,
+	})
+	require.NoError(t, err)
+	return newLog.ID
 }

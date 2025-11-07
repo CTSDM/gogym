@@ -121,7 +121,8 @@ func TestHandlerCreateLog(t *testing.T) {
 	require.NoError(t, testutil.Cleanup(dbPool, "sets"))
 	require.NoError(t, testutil.Cleanup(dbPool, "exercises"))
 	db := database.New(dbPool)
-	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test session")
+	user := testutil.CreateUserDBTestHelper(t, db, "usertest", "passwordtest", false)
+	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test session", user.ID.Bytes)
 	exerciseID := testutil.CreateExerciseDBTestHelper(t, db, "pull ups")
 	setID := testutil.CreateSetDBTestHelper(t, db, sessionID, exerciseID)
 
@@ -131,7 +132,7 @@ func TestHandlerCreateLog(t *testing.T) {
 			if tc.hasEmptyJSON {
 				reader = bytes.NewReader([]byte("{}"))
 			} else if tc.hasJSON {
-				reqParams := createLogReq{
+				reqParams := logReq{
 					ExerciseID: exerciseID,
 					Weight:     tc.weight,
 					Reps:       tc.reps,
@@ -169,7 +170,7 @@ func TestHandlerCreateLog(t *testing.T) {
 				}
 				return
 			} else {
-				var resParams createLogRes
+				var resParams logRes
 				decoder := json.NewDecoder(rr.Body)
 				require.NoError(t, decoder.Decode(&resParams))
 				assert.Equal(t, setID, resParams.SetID)
@@ -191,13 +192,13 @@ func TestHandlerCreateLog(t *testing.T) {
 func TestValidateCreateLog(t *testing.T) {
 	testCases := []struct {
 		name      string
-		req       createLogReq
+		req       logReq
 		shouldErr bool
 		errKeys   map[string]string
 	}{
 		{
 			name: "happy path",
-			req: createLogReq{
+			req: logReq{
 				Weight:     100.5,
 				Reps:       10,
 				Order:      1,
@@ -207,7 +208,7 @@ func TestValidateCreateLog(t *testing.T) {
 		},
 		{
 			name: "negative weight should be set to zero",
-			req: createLogReq{
+			req: logReq{
 				Weight:     -50,
 				Reps:       10,
 				Order:      1,
@@ -217,7 +218,7 @@ func TestValidateCreateLog(t *testing.T) {
 		},
 		{
 			name: "negative order",
-			req: createLogReq{
+			req: logReq{
 				Weight:     100,
 				Reps:       10,
 				Order:      -1,
@@ -230,7 +231,7 @@ func TestValidateCreateLog(t *testing.T) {
 		},
 		{
 			name: "zero reps",
-			req: createLogReq{
+			req: logReq{
 				Weight:     100,
 				Reps:       0,
 				Order:      1,
@@ -243,7 +244,7 @@ func TestValidateCreateLog(t *testing.T) {
 		},
 		{
 			name: "negative reps",
-			req: createLogReq{
+			req: logReq{
 				Weight:     100,
 				Reps:       -5,
 				Order:      1,
