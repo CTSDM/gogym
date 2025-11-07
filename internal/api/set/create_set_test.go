@@ -1,4 +1,4 @@
-package api
+package set
 
 import (
 	"bytes"
@@ -8,7 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/CTSDM/gogym/internal/auth"
+	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,6 @@ import (
 )
 
 func TestCreateSet(t *testing.T) {
-	apiState := NewState(database.New(dbPool), &auth.Config{})
 	testCases := []struct {
 		name         string
 		order        int32
@@ -64,20 +64,21 @@ func TestCreateSet(t *testing.T) {
 		},
 		{
 			name:       "rest time value too large",
-			restTime:   maxRestTimeSeconds + 1,
+			restTime:   apiconstants.MaxRestTimeSeconds + 1,
 			statusCode: http.StatusBadRequest,
 			errMessage: "must be less than",
 		},
 	}
 
-	require.NoError(t, cleanup("sessions"))
-	require.NoError(t, cleanup("exercises"))
-	exerciseID := createExerciseDBTestHelper(t, apiState, "pull ups")
-	sessionID := createSessionDBTestHelper(t, apiState, "test name")
+	require.NoError(t, testutil.Cleanup(dbPool, "sessions"))
+	require.NoError(t, testutil.Cleanup(dbPool, "exercises"))
+	db := database.New(dbPool)
+	exerciseID := testutil.CreateExerciseDBTestHelper(t, db, "pull ups")
+	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test name")
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cleanup("sets")
+			testutil.Cleanup(dbPool, "sets")
 			// Set up the response recorder and the request
 			reader := &bytes.Reader{}
 			if tc.hasEmptyJSON {
@@ -107,7 +108,7 @@ func TestCreateSet(t *testing.T) {
 			rr := httptest.NewRecorder()
 
 			// call the function
-			apiState.HandlerCreateSet(rr, req)
+			HandlerCreateSet(db).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())
@@ -129,7 +130,7 @@ func TestCreateSet(t *testing.T) {
 				}
 				assert.Equal(t, tc.order, resParams.SetOrder)
 				// check that the created user is on the database
-				_, err := apiState.db.GetSet(context.Background(), int64(resParams.ID))
+				_, err := db.GetSet(context.Background(), int64(resParams.ID))
 				assert.NoError(t, err)
 			}
 		})

@@ -1,4 +1,4 @@
-package api
+package exercise
 
 import (
 	"bytes"
@@ -9,7 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/CTSDM/gogym/internal/auth"
+	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,17 +30,17 @@ func TestValidateCreateExercise(t *testing.T) {
 			exerciseName: "valid name without description",
 		},
 		{
-			exerciseName: randomString(MaxExerciseLength),
-			description:  randomString(MaxDescriptionLength),
+			exerciseName: testutil.RandomString(apiconstants.MaxExerciseLength),
+			description:  testutil.RandomString(apiconstants.MaxDescriptionLength),
 		},
 		{
-			exerciseName: randomString(MaxExerciseLength + 1),
+			exerciseName: testutil.RandomString(apiconstants.MaxExerciseLength + 1),
 			description:  "description",
 			hasError:     true,
 		},
 		{
 			exerciseName: "name",
-			description:  randomString(MaxDescriptionLength + 1),
+			description:  testutil.RandomString(apiconstants.MaxDescriptionLength + 1),
 			hasError:     true,
 		},
 	}
@@ -61,7 +62,6 @@ func TestValidateCreateExercise(t *testing.T) {
 }
 
 func TestHandlerCreateExercise(t *testing.T) {
-	apiState := NewState(database.New(dbPool), &auth.Config{})
 	testCases := []struct {
 		name         string
 		exerciseName string
@@ -89,7 +89,7 @@ func TestHandlerCreateExercise(t *testing.T) {
 		},
 		{
 			name:         "name too long",
-			exerciseName: randomString(MaxExerciseLength + 1),
+			exerciseName: testutil.RandomString(apiconstants.MaxExerciseLength + 1),
 			description:  "description",
 			statusCode:   http.StatusBadRequest,
 			errMessage:   "could not validate the name",
@@ -97,7 +97,7 @@ func TestHandlerCreateExercise(t *testing.T) {
 		{
 			name:         "description too long",
 			exerciseName: "Valid Name",
-			description:  randomString(MaxDescriptionLength + 1),
+			description:  testutil.RandomString(apiconstants.MaxDescriptionLength + 1),
 			statusCode:   http.StatusBadRequest,
 			errMessage:   "could not validate the name",
 		},
@@ -109,9 +109,10 @@ func TestHandlerCreateExercise(t *testing.T) {
 		},
 	}
 
+	db := database.New(dbPool)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cleanup("exercises")
+			testutil.Cleanup(dbPool, "exercises")
 			reader := &bytes.Reader{}
 			if tc.hasEmptyJSON {
 				reader = bytes.NewReader([]byte("{invalid json}"))
@@ -129,7 +130,7 @@ func TestHandlerCreateExercise(t *testing.T) {
 			require.NoError(t, err, "unexpected error while creating the request")
 			rr := httptest.NewRecorder()
 
-			apiState.HandlerCreateExercise(rr, req)
+			HandlerCreateExercise(db).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())
@@ -143,7 +144,7 @@ func TestHandlerCreateExercise(t *testing.T) {
 				require.NoError(t, decoder.Decode(&resParams))
 				assert.Equal(t, tc.exerciseName, resParams.Name)
 				assert.Equal(t, tc.description, resParams.Description)
-				_, err := apiState.db.GetExercise(context.Background(), resParams.ID)
+				_, err := db.GetExercise(context.Background(), resParams.ID)
 				assert.NoError(t, err)
 			}
 		})
@@ -151,7 +152,6 @@ func TestHandlerCreateExercise(t *testing.T) {
 }
 
 func TestHandlerGetExercises(t *testing.T) {
-	apiState := NewState(database.New(dbPool), &auth.Config{})
 	testCases := []struct {
 		name           string
 		setupExercises []struct {
@@ -204,18 +204,19 @@ func TestHandlerGetExercises(t *testing.T) {
 		},
 	}
 
+	db := database.New(dbPool)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cleanup("exercises")
+			testutil.Cleanup(dbPool, "exercises")
 			for _, ex := range tc.setupExercises {
-				createExerciseDBTestHelper(t, apiState, ex.name)
+				testutil.CreateExerciseDBTestHelper(t, db, ex.name)
 			}
 
 			req, err := http.NewRequest("GET", "/test", nil)
 			require.NoError(t, err, "unexpected error while creating the request")
 			rr := httptest.NewRecorder()
 
-			apiState.HandlerGetExercises(rr, req)
+			HandlerGetExercises(db).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())
@@ -235,7 +236,6 @@ func TestHandlerGetExercises(t *testing.T) {
 }
 
 func TestHandlerGetExercise(t *testing.T) {
-	apiState := NewState(database.New(dbPool), &auth.Config{})
 	testCases := []struct {
 		name       string
 		setupName  string
@@ -279,15 +279,17 @@ func TestHandlerGetExercise(t *testing.T) {
 		},
 	}
 
+	db := database.New(dbPool)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cleanup("exercises")
+			testutil.Cleanup(dbPool, "exercises")
 			var exerciseID int32
 			if !tc.skipSetup {
 				if tc.setupDesc != "" {
-					exerciseID = int32(createExerciseWithDescDBTestHelper(t, apiState, tc.setupName, tc.setupDesc))
+					exerciseID = testutil.CreateExerciseWithDescDBTestHelper(
+						t, db, tc.setupName, tc.setupDesc)
 				} else {
-					exerciseID = int32(createExerciseDBTestHelper(t, apiState, tc.setupName))
+					exerciseID = testutil.CreateExerciseDBTestHelper(t, db, tc.setupName)
 				}
 			}
 
@@ -301,7 +303,7 @@ func TestHandlerGetExercise(t *testing.T) {
 			req.SetPathValue("id", idParam)
 			rr := httptest.NewRecorder()
 
-			apiState.HandlerGetExercise(rr, req)
+			HandlerGetExercise(db).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())

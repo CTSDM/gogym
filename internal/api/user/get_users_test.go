@@ -1,4 +1,4 @@
-package api
+package user
 
 import (
 	"bytes"
@@ -7,14 +7,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/CTSDM/gogym/internal/auth"
+	"github.com/CTSDM/gogym/internal/api/testutil"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestHandlerGetUser(t *testing.T) {
-	apiState := NewState(database.New(dbPool), &auth.Config{})
 	username := "username"
 	password := "password"
 
@@ -52,7 +51,9 @@ func TestHandlerGetUser(t *testing.T) {
 		},
 	}
 
-	user := createUserDBTestHelper(t, apiState, username, password, true)
+	testutil.Cleanup(dbPool, "users")
+	db := database.New(dbPool)
+	user := testutil.CreateUserDBTestHelper(t, db, username, password, true)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -64,21 +65,21 @@ func TestHandlerGetUser(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			apiState.HandlerGetUser(rr, req)
+			HandlerGetUser(db).ServeHTTP(rr, req)
 			require.Equal(t, tc.statusCode, rr.Code, "wrong status code")
 			tc.validateFn(t, rr, user)
 		})
 	}
 
 	t.Run("user without birthday", func(t *testing.T) {
-		userNoBirthday := createUserDBTestHelper(t, apiState, "user_no_birthday", password, false)
+		userNoBirthday := testutil.CreateUserDBTestHelper(t, db, "user_no_birthday", password, false)
 
 		req, err := http.NewRequest("GET", "/test", bytes.NewReader([]byte{}))
 		require.NoError(t, err, "unexpected error while setting up the request")
 		req.SetPathValue("id", userNoBirthday.ID.String())
 
 		rr := httptest.NewRecorder()
-		apiState.HandlerGetUser(rr, req)
+		HandlerGetUser(db).ServeHTTP(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code, "wrong status code")
 
 		var response User
@@ -91,16 +92,16 @@ func TestHandlerGetUser(t *testing.T) {
 }
 
 func TestHandlerGetUsers(t *testing.T) {
-	apiState := NewState(database.New(dbPool), &auth.Config{})
+	db := database.New(dbPool)
 
 	t.Run("empty database", func(t *testing.T) {
-		require.NoError(t, cleanup("users"))
+		require.NoError(t, testutil.Cleanup(dbPool, "users"))
 
 		req, err := http.NewRequest("GET", "/test", bytes.NewReader([]byte{}))
 		require.NoError(t, err, "unexpected error while setting up the request")
 
 		rr := httptest.NewRecorder()
-		apiState.HandlerGetUsers(rr, req)
+		HandlerGetUsers(db).ServeHTTP(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code, "wrong status code")
 
 		var response getUsersResponse
@@ -110,17 +111,17 @@ func TestHandlerGetUsers(t *testing.T) {
 	})
 
 	t.Run("multiple users", func(t *testing.T) {
-		require.NoError(t, cleanup("users"))
+		require.NoError(t, testutil.Cleanup(dbPool, "users"))
 
-		user1 := createUserDBTestHelper(t, apiState, "user1", "password1", true)
-		user2 := createUserDBTestHelper(t, apiState, "user2", "password2", false)
-		user3 := createUserDBTestHelper(t, apiState, "user3", "password3", true)
+		user1 := testutil.CreateUserDBTestHelper(t, db, "user1", "password1", true)
+		user2 := testutil.CreateUserDBTestHelper(t, db, "user2", "password2", false)
+		user3 := testutil.CreateUserDBTestHelper(t, db, "user3", "password3", true)
 
 		req, err := http.NewRequest("GET", "/test", bytes.NewReader([]byte{}))
 		require.NoError(t, err, "unexpected error while setting up the request")
 
 		rr := httptest.NewRecorder()
-		apiState.HandlerGetUsers(rr, req)
+		HandlerGetUsers(db).ServeHTTP(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code, "wrong status code")
 
 		var response getUsersResponse
@@ -147,15 +148,15 @@ func TestHandlerGetUsers(t *testing.T) {
 	})
 
 	t.Run("response structure validation", func(t *testing.T) {
-		require.NoError(t, cleanup("users"))
+		require.NoError(t, testutil.Cleanup(dbPool, "users"))
 
-		user := createUserDBTestHelper(t, apiState, "user_structure_test", "password", true)
+		user := testutil.CreateUserDBTestHelper(t, db, "user_structure_test", "password", true)
 
 		req, err := http.NewRequest("GET", "/test", bytes.NewReader([]byte{}))
 		require.NoError(t, err, "unexpected error while setting up the request")
 
 		rr := httptest.NewRecorder()
-		apiState.HandlerGetUsers(rr, req)
+		HandlerGetUsers(db).ServeHTTP(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code, "wrong status code")
 
 		var response getUsersResponse

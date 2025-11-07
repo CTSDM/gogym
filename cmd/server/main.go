@@ -28,7 +28,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not set up the auth config: %s", err.Error())
 	}
-	apiState := api.NewState(dbQueries, authConfig)
+	apiState := api.NewState(dbQueries, *authConfig)
 	log.Fatalf("something went wrong while setting up the server: %s", apiState.SetupServer().Error())
 }
 

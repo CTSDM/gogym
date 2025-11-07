@@ -1,9 +1,11 @@
-package api
+package util
 
 import (
 	"fmt"
 	"testing"
 
+	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -51,7 +53,7 @@ func TestValidateString(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("value %s, min length %d, max length %d", tc.value, tc.min, tc.max), func(t *testing.T) {
-				err := validateString(tc.value, tc.min, tc.max)
+				err := ValidateString(tc.value, tc.min, tc.max)
 				if tc.hasError == true {
 					assert.Error(t, err)
 				} else {
@@ -63,7 +65,7 @@ func TestValidateString(t *testing.T) {
 	t.Run("Check incoherent limits", func(t *testing.T) {
 		min := 10
 		max := 0
-		err := validateString("", min, max)
+		err := ValidateString("", min, max)
 		assert.EqualError(t, err, ErrMaxMinIncoherent.Error())
 	})
 }
@@ -86,16 +88,16 @@ func TestValidateStringWithOptionalField(t *testing.T) {
 			max:   10,
 		},
 		{
-			value:    randomString(MaxDescriptionLength + 1),
+			value:    testutil.RandomString(apiconstants.MaxDescriptionLength + 1),
 			min:      -1,
-			max:      MaxDescriptionLength,
+			max:      apiconstants.MaxDescriptionLength,
 			hasError: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("value length %d, min %d, max %d", len(tc.value), tc.min, tc.max), func(t *testing.T) {
-			err := validateString(tc.value, tc.min, tc.max)
+			err := ValidateString(tc.value, tc.min, tc.max)
 			if tc.hasError {
 				assert.Error(t, err)
 			} else {

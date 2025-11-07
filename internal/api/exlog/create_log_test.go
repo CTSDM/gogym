@@ -1,4 +1,4 @@
-package api
+package exlog
 
 import (
 	"bytes"
@@ -9,14 +9,13 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/CTSDM/gogym/internal/auth"
+	"github.com/CTSDM/gogym/internal/api/testutil"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestHandlerCreateLog(t *testing.T) {
-	apiState := NewState(database.New(dbPool), &auth.Config{})
 	testCases := []struct {
 		name         string
 		statusCode   int
@@ -118,12 +117,13 @@ func TestHandlerCreateLog(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, cleanup("sessions"))
-	require.NoError(t, cleanup("sets"))
-	require.NoError(t, cleanup("exercises"))
-	sessionID := createSessionDBTestHelper(t, apiState, "test session")
-	exerciseID := createExerciseDBTestHelper(t, apiState, "pull ups")
-	setID := createSetDBTestHelper(t, apiState, sessionID, exerciseID)
+	require.NoError(t, testutil.Cleanup(dbPool, "sessions"))
+	require.NoError(t, testutil.Cleanup(dbPool, "sets"))
+	require.NoError(t, testutil.Cleanup(dbPool, "exercises"))
+	db := database.New(dbPool)
+	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test session")
+	exerciseID := testutil.CreateExerciseDBTestHelper(t, db, "pull ups")
+	setID := testutil.CreateSetDBTestHelper(t, db, sessionID, exerciseID)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -158,7 +158,7 @@ func TestHandlerCreateLog(t *testing.T) {
 
 			rr := httptest.NewRecorder()
 
-			apiState.HandlerCreateLog(rr, req)
+			HandlerCreateLog(db).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())
@@ -179,7 +179,7 @@ func TestHandlerCreateLog(t *testing.T) {
 				}
 				assert.Equal(t, tc.reps, resParams.Reps)
 				assert.Equal(t, tc.order, resParams.Order)
-				_, err := apiState.db.GetLog(context.Background(), resParams.ID)
+				_, err := db.GetLog(context.Background(), resParams.ID)
 				assert.NoError(t, err)
 			}
 		})
