@@ -51,11 +51,11 @@ func TestValidateCreateExercise(t *testing.T) {
 				Name:        tc.exerciseName,
 				Description: tc.description,
 			}
-			err := req.validate()
+			problems := req.Valid(context.Background())
 			if tc.hasError {
-				assert.Error(t, err)
+				assert.Greater(t, len(problems), 0)
 			} else {
-				assert.NoError(t, err)
+				assert.Equal(t, 0, len(problems))
 			}
 		})
 	}
@@ -67,7 +67,7 @@ func TestHandlerCreateExercise(t *testing.T) {
 		exerciseName string
 		description  string
 		statusCode   int
-		errMessage   string
+		errMessage   []string
 		hasEmptyJSON bool
 	}{
 		{
@@ -92,20 +92,27 @@ func TestHandlerCreateExercise(t *testing.T) {
 			exerciseName: testutil.RandomString(apiconstants.MaxExerciseLength + 1),
 			description:  "description",
 			statusCode:   http.StatusBadRequest,
-			errMessage:   "could not validate the name",
+			errMessage:   []string{"invalid name"},
 		},
 		{
 			name:         "description too long",
 			exerciseName: "Valid Name",
 			description:  testutil.RandomString(apiconstants.MaxDescriptionLength + 1),
 			statusCode:   http.StatusBadRequest,
-			errMessage:   "could not validate the name",
+			errMessage:   []string{"invalid description"},
+		},
+		{
+			name:         "invalid description and invalid name",
+			exerciseName: testutil.RandomString(apiconstants.MaxExerciseLength + 1),
+			description:  testutil.RandomString(apiconstants.MaxDescriptionLength + 1),
+			statusCode:   http.StatusBadRequest,
+			errMessage:   []string{"invalid name", "invalid description"},
 		},
 		{
 			name:         "invalid JSON",
 			hasEmptyJSON: true,
 			statusCode:   http.StatusBadRequest,
-			errMessage:   "could not parse JSON",
+			errMessage:   []string{"invalid payload"},
 		},
 	}
 
@@ -136,7 +143,9 @@ func TestHandlerCreateExercise(t *testing.T) {
 				t.Fatalf("Body response: %s", rr.Body.String())
 			}
 			if tc.statusCode > 399 {
-				assert.Contains(t, rr.Body.String(), tc.errMessage)
+				for _, msg := range tc.errMessage {
+					assert.Contains(t, rr.Body.String(), msg)
+				}
 				return
 			} else {
 				var resParams createExerciseRes

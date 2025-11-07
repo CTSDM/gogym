@@ -1,12 +1,13 @@
 package set
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/CTSDM/gogym/internal/api/util"
+	"github.com/CTSDM/gogym/internal/api/validation"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
@@ -27,6 +28,25 @@ type createSetRes struct {
 	createSetReq
 }
 
+func (r *createSetReq) Valid(ctx context.Context) map[string]string {
+	problems := make(map[string]string)
+
+	// set order validation
+	if r.SetOrder < 0 {
+		problems["order"] = "invalid order: set order must be positive"
+	}
+
+	// rest time validation
+	if r.RestTime > apiconstants.MaxRestTimeSeconds {
+		msg := fmt.Sprintf("rest time in seconds must be less than %d seconds", apiconstants.MaxRestTimeSeconds)
+		problems["order"] = "invalid rest time: " + msg
+	} else if r.RestTime < 0 { // negative rest times are mapped to 0
+		r.RestTime = 0
+	}
+
+	return problems
+}
+
 func HandlerCreateSet(db *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// session id must be a valid uuid
@@ -35,18 +55,13 @@ func HandlerCreateSet(db *database.Queries) http.HandlerFunc {
 			util.RespondWithError(w, http.StatusNotFound, "session ID not found", err)
 			return
 		}
-		// Decode the incoming json
-		var requestParams createSetReq
-		defer r.Body.Close()
-		decoder := json.NewDecoder(r.Body)
-		if err := decoder.Decode(&requestParams); err != nil {
-			util.RespondWithError(w, http.StatusBadRequest, "Invalid payload", err)
-			return
-		}
 
-		// Validate request
-		if err := requestParams.validate(); err != nil {
-			util.RespondWithError(w, http.StatusBadRequest, err.Error(), nil)
+		reqParams, problems, err := validation.DecodeValid[*createSetReq](r)
+		if len(problems) > 0 {
+			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			return
+		} else if err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -62,12 +77,9 @@ func HandlerCreateSet(db *database.Queries) http.HandlerFunc {
 		// Record the set into the database
 		dbParams := database.CreateSetParams{
 			SessionID:  pgtype.UUID{Bytes: sessionID, Valid: true},
-			SetOrder:   requestParams.SetOrder,
-			ExerciseID: requestParams.ExerciseID,
-		}
-		// negative rest time values will be considered to be null
-		if requestParams.RestTime >= 0 {
-			dbParams.RestTime = pgtype.Int4{Int32: int32(requestParams.RestTime), Valid: true}
+			SetOrder:   reqParams.SetOrder,
+			ExerciseID: reqParams.ExerciseID,
+			RestTime:   pgtype.Int4{Int32: reqParams.RestTime, Valid: true},
 		}
 
 		set, err := db.CreateSet(r.Context(), dbParams)
@@ -91,18 +103,4 @@ func HandlerCreateSet(db *database.Queries) http.HandlerFunc {
 				},
 			})
 	}
-}
-
-func (r *createSetReq) validate() error {
-	// set order validation
-	if r.SetOrder < 0 {
-		return fmt.Errorf("set order must be greater than 1")
-	}
-
-	// rest time validation
-	if r.RestTime > apiconstants.MaxRestTimeSeconds {
-		return fmt.Errorf("rest time in seconds must be less than %d seconds", apiconstants.MaxRestTimeSeconds)
-	}
-
-	return nil
 }

@@ -1,4 +1,4 @@
-package util
+package validation
 
 import (
 	"fmt"
@@ -53,7 +53,7 @@ func TestValidateString(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("value %s, min length %d, max length %d", tc.value, tc.min, tc.max), func(t *testing.T) {
-				err := ValidateString(tc.value, tc.min, tc.max)
+				err := String(tc.value, tc.min, tc.max)
 				if tc.hasError == true {
 					assert.Error(t, err)
 				} else {
@@ -65,7 +65,7 @@ func TestValidateString(t *testing.T) {
 	t.Run("Check incoherent limits", func(t *testing.T) {
 		min := 10
 		max := 0
-		err := ValidateString("", min, max)
+		err := String("", min, max)
 		assert.EqualError(t, err, ErrMaxMinIncoherent.Error())
 	})
 }
@@ -97,7 +97,7 @@ func TestValidateStringWithOptionalField(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("value length %d, min %d, max %d", len(tc.value), tc.min, tc.max), func(t *testing.T) {
-			err := ValidateString(tc.value, tc.min, tc.max)
+			err := String(tc.value, tc.min, tc.max)
 			if tc.hasError {
 				assert.Error(t, err)
 			} else {

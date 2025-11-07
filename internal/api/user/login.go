@@ -1,13 +1,12 @@
 package user
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
+	"context"
 	"net/http"
 	"time"
 
 	"github.com/CTSDM/gogym/internal/api/util"
+	"github.com/CTSDM/gogym/internal/api/validation"
 	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/jackc/pgx/v5"
@@ -27,27 +26,36 @@ type loginRes struct {
 	Token        string `json:"token"`
 }
 
+// For login we only check that the username/password are not empty
+func (r loginReq) Valid(ctx context.Context) map[string]string {
+	problems := make(map[string]string)
+
+	// validate username
+	if r.Username == "" {
+		problems["username"] = "invalid username"
+	}
+
+	// validate password
+	if r.Password == "" {
+		problems["password"] = "invalid password"
+	}
+
+	return problems
+}
+
 func HandlerLogin(db *database.Queries, authConfig *auth.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		params := loginReq{}
-		defer r.Body.Close()
-
-		// decode the json
-		decoder := json.NewDecoder(r.Body)
-		if err := decoder.Decode(&params); err != nil {
-			util.RespondWithError(w, http.StatusBadRequest, "Could not decode the request body into a JSON.", err)
+		reqParams, problems, err := validation.DecodeValid[loginReq](r)
+		if len(problems) > 0 {
+			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
-		}
-
-		// validate the inputs
-		if err := validateLogin(params); err != nil {
-			message := fmt.Sprintf("invalid login %s", err.Error())
-			util.RespondWithError(w, http.StatusBadRequest, message, nil)
+		} else if err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
 		// find the user in the database
-		user, err := db.GetUserByUsername(r.Context(), params.Username)
+		user, err := db.GetUserByUsername(r.Context(), reqParams.Username)
 		if err == pgx.ErrNoRows {
 			util.RespondWithJSON(w, http.StatusOK, util.ErrorResponse{
 				Error: "Incorrect username/password",
@@ -58,8 +66,8 @@ func HandlerLogin(db *database.Queries, authConfig *auth.Config) http.HandlerFun
 			return
 		}
 
-		// validate the password
-		if err := auth.CheckPasswordHash(params.Password, user.HashedPassword); err == bcrypt.ErrMismatchedHashAndPassword {
+		// verify the password
+		if err := auth.CheckPasswordHash(reqParams.Password, user.HashedPassword); err == bcrypt.ErrMismatchedHashAndPassword {
 			util.RespondWithJSON(w, http.StatusOK, util.ErrorResponse{
 				Error: "Incorrect username/password",
 			})
@@ -99,18 +107,4 @@ func HandlerLogin(db *database.Queries, authConfig *auth.Config) http.HandlerFun
 			RefreshToken: refreshToken,
 		})
 	}
-}
-
-func validateLogin(req loginReq) error {
-	// validate username
-	if req.Username == "" {
-		return errors.New("username cannot be empty")
-	}
-
-	// validate password
-	if req.Password == "" {
-		return errors.New("password cannot be empty")
-	}
-
-	return nil
 }

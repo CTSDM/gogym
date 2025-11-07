@@ -1,14 +1,34 @@
-package util
+package validation
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 )
 
+// taken from Mat Ryer's article
+// https://grafana.com/blog/2024/02/09/how-i-write-http-services-in-go-after-13-years/
+func DecodeValid[T Validator](r *http.Request) (T, map[string]string, error) {
+	var v T
+	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
+		return v, nil, fmt.Errorf("decode json: %w", err)
+	}
+	if problems := v.Valid(r.Context()); len(problems) > 0 {
+		return v, problems, fmt.Errorf("invalid %T: %d problems", v, len(problems))
+	}
+	return v, nil, nil
+}
+
+type Validator interface {
+	Valid(ctx context.Context) (problems map[string]string)
+}
+
 var ErrMaxMinIncoherent = errors.New("min and max values are swapped")
 
-func ValidateString(value string, min, max int) error {
+func String(value string, min, max int) error {
 	if min > max {
 		return ErrMaxMinIncoherent
 	}
@@ -19,7 +39,7 @@ func ValidateString(value string, min, max int) error {
 	return nil
 }
 
-func ValidateDate(value, format string, min, max *time.Time) (time.Time, error) {
+func Date(value, format string, min, max *time.Time) (time.Time, error) {
 	date, err := time.Parse(format, value)
 	if err != nil {
 		return time.Time{}, err

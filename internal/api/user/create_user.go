@@ -1,13 +1,14 @@
 package user
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/CTSDM/gogym/internal/api/util"
+	"github.com/CTSDM/gogym/internal/api/validation"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
@@ -19,31 +20,55 @@ type createUserRequest struct {
 	Password string `json:"password"`
 	Birthday string `json:"birthday"` // represented as YYYY-MM-DD (ISO 8601)
 	Country  string `json:"country"`
+
+	bdate time.Time
+}
+
+func (r *createUserRequest) Valid(ctx context.Context) map[string]string {
+	// username validation
+	problems := make(map[string]string)
+	if err := validation.String(r.Username, apiconstants.MinUsernameLength, apiconstants.MaxUsernameLength); err != nil {
+		problems["username"] = fmt.Sprintf("invalid username: %s", err.Error())
+	}
+
+	// password validation
+	if err := validation.String(r.Password, apiconstants.MinPasswordLength, apiconstants.MaxPasswordLength); err != nil {
+		problems["password"] = fmt.Sprintf("invalid password: %s", err.Error())
+	}
+
+	// date validation, it is an optional parameter
+	if r.Birthday != "" {
+		date, err := validation.Date(r.Birthday, apiconstants.DATE_LAYOUT, &apiconstants.MinBirthDate, &apiconstants.MaxBirthDate)
+		if err != nil {
+			problems["birthday"] = fmt.Sprintf("invalid birthday: %s", err.Error())
+		}
+		r.bdate = date
+	}
+
+	// country validation, it is an optional parameter
+	if r.Country != "" {
+		if err := validation.String(r.Country, apiconstants.MinCountryLength, apiconstants.MaxCountryLength); err != nil {
+			problems["country"] = fmt.Sprintf("invalid country: %s", err.Error())
+		}
+	}
+
+	return problems
 }
 
 func HandlerCreateUser(db *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		params := createUserRequest{}
-		defer r.Body.Close()
-
-		// decode inc json body
-		decoder := json.NewDecoder(r.Body)
-		err := decoder.Decode(&params)
-		if err != nil {
-			msg := "Could not decode the request body into a JSON."
-			util.RespondWithError(w, http.StatusBadRequest, msg, err)
-			return
-		}
-
 		// validate the json
-		birthday, err := validateCreateUser(params)
-		if err != nil {
-			util.RespondWithError(w, http.StatusBadRequest, err.Error(), nil)
+		reqParams, problems, err := validation.DecodeValid[*createUserRequest](r)
+		if len(problems) > 0 {
+			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			return
+		} else if err != nil {
+			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
 		// generate hashed password
-		hashed, err := auth.HashPassword(params.Password)
+		hashed, err := auth.HashPassword(reqParams.Password)
 		if err != nil {
 			util.RespondWithError(w, http.StatusInternalServerError, "Something went wrong while hashing the password", err)
 			return
@@ -52,9 +77,9 @@ func HandlerCreateUser(db *database.Queries) http.HandlerFunc {
 		// check if the user exists in the database
 		// insert new user into the database
 		user, err := db.CreateUser(r.Context(), database.CreateUserParams{
-			Username:       params.Username,
-			Birthday:       pgtype.Date{Time: birthday, Valid: true},
-			Country:        pgtype.Text{String: params.Country, Valid: true},
+			Username:       reqParams.Username,
+			Birthday:       pgtype.Date{Time: reqParams.bdate, Valid: true},
+			Country:        pgtype.Text{String: reqParams.Country, Valid: true},
 			HashedPassword: hashed,
 		})
 		if err != nil {
@@ -73,31 +98,4 @@ func HandlerCreateUser(db *database.Queries) http.HandlerFunc {
 			Birthday:  user.Birthday.Time.Format(apiconstants.DATE_LAYOUT),
 		})
 	}
-}
-
-func validateCreateUser(req createUserRequest) (birthday time.Time, err error) {
-	// username validation
-	if err = util.ValidateString(req.Username, apiconstants.MinUsernameLength, apiconstants.MaxUsernameLength); err != nil {
-		return birthday, fmt.Errorf("could not validate the username: %w", err)
-	}
-	// password validation
-	if err = util.ValidateString(req.Password, apiconstants.MinPasswordLength, apiconstants.MaxPasswordLength); err != nil {
-		return birthday, fmt.Errorf("could not validate the password: %w", err)
-	}
-	// date validation, it is an optional parameter
-	if req.Birthday != "" {
-		date, err := util.ValidateDate(req.Birthday, apiconstants.DATE_LAYOUT, &apiconstants.MinBirthDate, &apiconstants.MaxBirthDate)
-		if err != nil {
-			return birthday, fmt.Errorf("could not validate the date: %w", err)
-		}
-		birthday = date
-	}
-	// country validation, it is an optional parameter
-	if req.Country != "" {
-		if err := util.ValidateString(req.Country, apiconstants.MinCountryLength, apiconstants.MaxCountryLength); err != nil {
-			return birthday, fmt.Errorf("could not validate the country: %w", err)
-		}
-	}
-
-	return birthday, err
 }

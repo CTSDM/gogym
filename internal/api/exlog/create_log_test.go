@@ -19,7 +19,7 @@ func TestHandlerCreateLog(t *testing.T) {
 	testCases := []struct {
 		name         string
 		statusCode   int
-		errMsg       string
+		errMsg       []string
 		hasJSON      bool
 		hasEmptyJSON bool
 		setID        int64
@@ -41,14 +41,14 @@ func TestHandlerCreateLog(t *testing.T) {
 		{
 			name:       "no JSON sent",
 			statusCode: http.StatusBadRequest,
-			errMsg:     "Invalid payload",
+			errMsg:     []string{"invalid payload"},
 		},
 		{
 			name:         "empty JSON",
 			statusCode:   http.StatusBadRequest,
 			hasJSON:      true,
 			hasEmptyJSON: true,
-			errMsg:       "cannot be",
+			errMsg:       []string{"invalid reps"},
 		},
 		{
 			name:       "negative weight should be set to zero",
@@ -65,7 +65,7 @@ func TestHandlerCreateLog(t *testing.T) {
 			weight:     100,
 			reps:       10,
 			order:      -1,
-			errMsg:     "log order cannot be less than zero",
+			errMsg:     []string{"invalid order"},
 		},
 		{
 			name:       "zero reps",
@@ -74,7 +74,7 @@ func TestHandlerCreateLog(t *testing.T) {
 			weight:     100,
 			reps:       0,
 			order:      1,
-			errMsg:     "reps cannot be less than zero",
+			errMsg:     []string{"invalid reps"},
 		},
 		{
 			name:       "negative reps",
@@ -83,7 +83,7 @@ func TestHandlerCreateLog(t *testing.T) {
 			weight:     100,
 			reps:       -5,
 			order:      1,
-			errMsg:     "reps cannot be less than zero",
+			errMsg:     []string{"invalid reps"},
 		},
 		{
 			name:       "set id does not exist",
@@ -93,7 +93,7 @@ func TestHandlerCreateLog(t *testing.T) {
 			reps:       10,
 			order:      1,
 			setID:      99999,
-			errMsg:     "not found",
+			errMsg:     []string{"not found"},
 		},
 		{
 			name:         "set id is not a valid id",
@@ -102,7 +102,7 @@ func TestHandlerCreateLog(t *testing.T) {
 			weight:       100,
 			reps:         10,
 			order:        1,
-			errMsg:       "not found",
+			errMsg:       []string{"not found"},
 			invalidSetID: true,
 		},
 		{
@@ -113,7 +113,7 @@ func TestHandlerCreateLog(t *testing.T) {
 			reps:       10,
 			order:      1,
 			exerciseID: 99999,
-			errMsg:     "exercise id does not exist",
+			errMsg:     []string{"not found"},
 		},
 	}
 
@@ -132,7 +132,7 @@ func TestHandlerCreateLog(t *testing.T) {
 				reader = bytes.NewReader([]byte("{}"))
 			} else if tc.hasJSON {
 				reqParams := createLogReq{
-					ExerciseID: int32(exerciseID),
+					ExerciseID: exerciseID,
 					Weight:     tc.weight,
 					Reps:       tc.reps,
 					Order:      tc.order,
@@ -164,7 +164,9 @@ func TestHandlerCreateLog(t *testing.T) {
 				t.Fatalf("Body response: %s", rr.Body.String())
 			}
 			if tc.statusCode > 399 {
-				assert.Contains(t, rr.Body.String(), tc.errMsg)
+				for _, message := range tc.errMsg {
+					assert.Contains(t, rr.Body.String(), message)
+				}
 				return
 			} else {
 				var resParams createLogRes
@@ -188,10 +190,10 @@ func TestHandlerCreateLog(t *testing.T) {
 
 func TestValidateCreateLog(t *testing.T) {
 	testCases := []struct {
-		name       string
-		req        createLogReq
-		shouldErr  bool
-		errMessage string
+		name      string
+		req       createLogReq
+		shouldErr bool
+		errKeys   map[string]string
 	}{
 		{
 			name: "happy path",
@@ -221,8 +223,10 @@ func TestValidateCreateLog(t *testing.T) {
 				Order:      -1,
 				ExerciseID: 1,
 			},
-			shouldErr:  true,
-			errMessage: "log order cannot be less than zero",
+			shouldErr: true,
+			errKeys: map[string]string{
+				"order": "must be positive",
+			},
 		},
 		{
 			name: "zero reps",
@@ -232,8 +236,10 @@ func TestValidateCreateLog(t *testing.T) {
 				Order:      1,
 				ExerciseID: 1,
 			},
-			shouldErr:  true,
-			errMessage: "reps cannot be less than zero",
+			shouldErr: true,
+			errKeys: map[string]string{
+				"reps": "must be positive",
+			},
 		},
 		{
 			name: "negative reps",
@@ -243,19 +249,28 @@ func TestValidateCreateLog(t *testing.T) {
 				Order:      1,
 				ExerciseID: 1,
 			},
-			shouldErr:  true,
-			errMessage: "reps cannot be less than zero",
+			shouldErr: true,
+			errKeys: map[string]string{
+				"reps": "must be positive",
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.req.validate()
+			problems := tc.req.Valid(context.Background())
 			if tc.shouldErr {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.errMessage)
+				require.Greater(t, len(problems), 0)
+				for key, value := range tc.errKeys {
+					got, ok := problems[key]
+					if !ok {
+						t.Errorf("key not found: %s", key)
+					} else {
+						assert.Contains(t, got, value)
+					}
+				}
 			} else {
-				require.NoError(t, err)
+				require.Equal(t, 0, len(problems))
 				if tc.req.Weight < 0 {
 					assert.Equal(t, 0.0, tc.req.Weight)
 				}
