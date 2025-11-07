@@ -1,4 +1,4 @@
-package api
+package session
 
 import (
 	"bytes"
@@ -11,7 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/CTSDM/gogym/internal/auth"
+	"github.com/CTSDM/gogym/internal/api/middleware"
+	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/api/util"
+	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +22,6 @@ import (
 )
 
 func TestHandlerCreateSession(t *testing.T) {
-	apiState := NewState(database.New(dbPool), &auth.Config{})
 	testCases := []struct {
 		testName        string
 		statusCode      int
@@ -99,8 +101,9 @@ func TestHandlerCreateSession(t *testing.T) {
 		},
 	}
 
-	cleanup("users")
-	userID := createUserDBTestHelper(t, apiState, "usertest", "passwordtest", false).ID.Bytes
+	testutil.Cleanup(dbPool, "users")
+	db := database.New(dbPool)
+	userID := testutil.CreateUserDBTestHelper(t, db, "usertest", "passwordtest", false).ID.Bytes
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
@@ -132,7 +135,7 @@ func TestHandlerCreateSession(t *testing.T) {
 				userID = uuid.New()
 			}
 
-			ctx := ContextWithUser(context.Background(), userID)
+			ctx := middleware.ContextWithUser(context.Background(), userID)
 			if tc.missingContext {
 				ctx = context.Background()
 			}
@@ -141,14 +144,14 @@ func TestHandlerCreateSession(t *testing.T) {
 			rr := httptest.NewRecorder()
 
 			// Call the function
-			apiState.HandlerCreateSession(rr, req)
+			HandlerCreateSession(db).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Fail()
 				t.Logf("Response body: %s", rr.Body.String())
 				return
 			}
 			if tc.statusCode > 399 {
-				var resParams errorResponse
+				var resParams util.ErrorResponse
 				decoder := json.NewDecoder(rr.Body)
 				require.NoError(t, decoder.Decode(&resParams))
 				assert.Contains(t, resParams.Error, tc.errMsg)
@@ -164,7 +167,7 @@ func TestHandlerCreateSession(t *testing.T) {
 				if tc.date != "" {
 					assert.Equal(t, tc.date, resParams.Date)
 				} else {
-					assert.Equal(t, time.Now().Format(DATE_LAYOUT), resParams.Date)
+					assert.Equal(t, time.Now().Format(apiconstants.DATE_LAYOUT), resParams.Date)
 				}
 				if tc.startTimestamp != 0 {
 					assert.Equal(t, tc.startTimestamp, resParams.StartTimestamp)
@@ -206,7 +209,7 @@ func TestValidateCreateSession(t *testing.T) {
 		},
 		{
 			testName:   "very large name",
-			name:       string(make([]byte, maxSessionNameLength+10)),
+			name:       string(make([]byte, apiconstants.MaxSessionNameLength+10)),
 			errMessage: "could not validate the name",
 			hasError:   true,
 		},
@@ -293,16 +296,20 @@ func TestPopulateCreateSession(t *testing.T) {
 			if tc.name == "" {
 				assert.NotEqual(t, tc.name, req.Name, "name was not populated")
 				// check that the format is correct
-				_, err := time.Parse(DATE_TIME_LAYOUT, req.Name)
-				assert.NoError(t, err, fmt.Sprintf("generated name does not follow the required format %s", DATE_TIME_LAYOUT))
+				_, err := time.Parse(apiconstants.DATE_TIME_LAYOUT, req.Name)
+				assert.NoError(t, err,
+					fmt.Sprintf("generated name does not follow the required format %s",
+						apiconstants.DATE_TIME_LAYOUT))
 			} else {
 				assert.Equal(t, tc.name, req.Name, "name was populated")
 			}
 
 			if tc.date == "" {
 				assert.NotEqual(t, tc.date, req.Date, "date was not populated")
-				_, err := time.Parse(DATE_LAYOUT, req.Date)
-				assert.NoError(t, err, fmt.Sprintf("generated name does not follow the required format %s", DATE_TIME_LAYOUT))
+				_, err := time.Parse(apiconstants.DATE_LAYOUT, req.Date)
+				assert.NoError(t, err,
+					fmt.Sprintf("generated name does not follow the required format %s",
+						apiconstants.DATE_TIME_LAYOUT))
 			} else {
 				assert.Equal(t, tc.date, req.Date, "date was populated")
 			}

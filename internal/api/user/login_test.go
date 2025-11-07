@@ -1,4 +1,4 @@
-package api
+package user
 
 import (
 	"bytes"
@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -17,20 +19,18 @@ import (
 )
 
 func TestHandlerLogin(t *testing.T) {
-	apiState := NewState(
-		database.New(dbPool),
-		&auth.Config{
-			JWTsecret:            "testSecret",
-			JWTDuration:          time.Minute,
-			RefreshTokenDuration: time.Hour,
-		},
-	)
-
 	type testCase struct {
 		name     string
 		username string
 		password string
 		code     int
+	}
+
+	db := database.New(dbPool)
+	authConfig := auth.Config{
+		JWTsecret:            "testSecret",
+		JWTDuration:          time.Minute,
+		RefreshTokenDuration: time.Hour,
 	}
 
 	t.Run("user already on the database - test http codes", func(t *testing.T) {
@@ -75,8 +75,8 @@ func TestHandlerLogin(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, cleanup("users"), "failed to clean the database")
-		createUserDBTestHelper(t, apiState, username, password, false)
+		require.NoError(t, testutil.Cleanup(dbPool, "users"), "failed to clean the database")
+		testutil.CreateUserDBTestHelper(t, db, username, password, false)
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestHandlerLogin(t *testing.T) {
 				req.Header.Set("Content-Type", "application/json")
 
 				rrLogin := httptest.NewRecorder()
-				apiState.HandlerLogin(rrLogin, req)
+				HandlerLogin(db, authConfig).ServeHTTP(rrLogin, req)
 				require.Equal(t, tc.code, rrLogin.Code, "mismatch in http status code")
 
 				if tc.hasInvalidPayload == true {
@@ -107,7 +107,7 @@ func TestHandlerLogin(t *testing.T) {
 
 				// Check payload
 				if tc.hasErrInPayload == true {
-					var errRes errorResponse
+					var errRes util.ErrorResponse
 					decoder := json.NewDecoder(rrLogin.Body)
 					decoder.DisallowUnknownFields()
 					assert.NoError(t, decoder.Decode(&errRes), "failed to decode the res login json")
@@ -137,15 +137,15 @@ func TestHandlerLogin(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, cleanup("users"), "failed to clean the users table")
-		require.NoError(t, cleanup("refresh_tokens"), "failed to clean refresh tokens table")
+		require.NoError(t, testutil.Cleanup(dbPool, "users"), "failed to clean the users table")
+		require.NoError(t, testutil.Cleanup(dbPool, "refresh_tokens"), "failed to clean refresh tokens table")
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				userIDDB := createUserDBTestHelper(t, apiState, tc.username, tc.password, false).ID
+				userIDDB := testutil.CreateUserDBTestHelper(t, db, tc.username, tc.password, false).ID
 				userID := userIDDB.Bytes
 				userIDString := userIDDB.String()
-				createTokensDBHelperTest(t, userID, apiState)
+				testutil.CreateTokensDBHelperTest(t, db, authConfig, userID)
 				// Prepare request body
 				reqBodyStruct := loginReq{
 					Username: tc.username,
@@ -163,7 +163,7 @@ func TestHandlerLogin(t *testing.T) {
 				rr := httptest.NewRecorder()
 
 				// Handler Login
-				apiState.HandlerLogin(rr, req)
+				HandlerLogin(db, authConfig).ServeHTTP(rr, req)
 				require.Equal(t, tc.code, rr.Code, "mismatch in http status code")
 
 				if tc.code > 200 {
@@ -176,7 +176,7 @@ func TestHandlerLogin(t *testing.T) {
 				require.NoError(t, decoder.Decode(&resBody), "could not decode the JSON response")
 
 				// call the database to get the user and refresh token information
-				gotRefreshToken, err := apiState.db.GetRefreshTokenByUserID(
+				gotRefreshToken, err := db.GetRefreshTokenByUserID(
 					context.Background(),
 					pgtype.UUID{Bytes: userID, Valid: true},
 				)
@@ -186,7 +186,7 @@ func TestHandlerLogin(t *testing.T) {
 				assert.Equal(t, userIDString, resBody.UserID, "mismatch in user id")
 				assert.Equal(t, tc.username, resBody.Username, "mismatch in username")
 				assert.Equal(t, gotRefreshToken.Token, resBody.RefreshToken, "mismatch in refresh token")
-				id, err := auth.ValidateJWT(resBody.Token, apiState.authConfig.JWTsecret)
+				id, err := auth.ValidateJWT(resBody.Token, authConfig.JWTsecret)
 				assert.NoError(t, err, "invalid JWT in the response body")
 				assert.Equal(t, userIDString, id, "id obtained from JWT does not match the user id")
 			})

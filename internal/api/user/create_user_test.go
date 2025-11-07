@@ -1,4 +1,4 @@
-package api
+package user
 
 import (
 	"bytes"
@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/CTSDM/gogym/internal/auth"
+	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -76,17 +77,16 @@ func TestCreateUser(t *testing.T) {
 		},
 	}
 
-	apiState := NewState(database.New(dbPool), &auth.Config{})
 	done := make(chan struct{})
 	timeoutDuration := 1 * time.Second
 	ticker := time.NewTicker(timeoutDuration)
-	cleanup("users")
+	testutil.Cleanup(dbPool, "users")
+	db := database.New(dbPool)
 
 	go func() {
 		defer close(done)
 		for _, tc := range testCases {
 			t.Run(tc.testname, func(t *testing.T) {
-
 				// Create the request body
 				reqBodyStruct := createUserRequest{
 					Username: tc.username,
@@ -107,7 +107,7 @@ func TestCreateUser(t *testing.T) {
 				rr := httptest.NewRecorder()
 
 				// Call the handler to test
-				apiState.HandlerCreateUser(rr, req)
+				HandlerCreateUser(db).ServeHTTP(rr, req)
 
 				// Checks the response
 				assert.Equal(t, tc.statusCode, rr.Code, "mismatch in http status")
@@ -120,13 +120,13 @@ func TestCreateUser(t *testing.T) {
 					require.NoError(t, err, "could not parse the user id into UUID")
 
 					// Obtain the user information from the database
-					user, err := apiState.db.GetUser(context.Background(), pgtype.UUID{Bytes: userID, Valid: true})
+					user, err := db.GetUser(context.Background(), pgtype.UUID{Bytes: userID, Valid: true})
 					assert.NotErrorIs(t, pgx.ErrNoRows, err, "user not found on the database")
 					require.NoError(t, err, "unexpected error when querying the database")
 
 					// Validate sent response is the same as the one stored in the db
 					assert.Equal(t, user.Username, resBody.Username)
-					assert.Equal(t, user.Birthday.Time.Format(DATE_LAYOUT), resBody.Birthday)
+					assert.Equal(t, user.Birthday.Time.Format(apiconstants.DATE_LAYOUT), resBody.Birthday)
 					assert.Equal(t, user.Country.String, resBody.Country)
 					assert.Equal(t, user.CreatedAt.Time.String(), resBody.CreatedAt)
 				}

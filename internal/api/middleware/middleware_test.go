@@ -1,4 +1,4 @@
-package api
+package middleware
 
 import (
 	"bytes"
@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
@@ -26,15 +28,7 @@ func checkContextNext(t *testing.T, expectedUserID uuid.UUID) http.HandlerFunc {
 	}
 }
 
-func TestHandlerMiddlewareAdminOnly(t *testing.T) {
-	apiState := NewState(
-		database.New(dbPool),
-		&auth.Config{
-			JWTsecret:            "somerandomsecret",
-			RefreshTokenDuration: time.Hour,
-			JWTDuration:          time.Minute,
-		})
-
+func TestAdminOnly(t *testing.T) {
 	testCases := []struct {
 		name       string
 		isAdmin    bool
@@ -61,24 +55,30 @@ func TestHandlerMiddlewareAdminOnly(t *testing.T) {
 		},
 	}
 
+	db := database.New(dbPool)
+	authConfig := auth.Config{
+		JWTsecret:            "somerandomsecret",
+		RefreshTokenDuration: time.Hour,
+		JWTDuration:          time.Minute,
+	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.NoError(t, cleanup("users"))
-			require.NoError(t, cleanup("refresh_tokens"))
+			require.NoError(t, testutil.Cleanup(dbPool, "users"))
+			require.NoError(t, testutil.Cleanup(dbPool, "refresh_tokens"))
 
 			username := "usertest"
 			password := "passwordtest"
 			var user database.User
 			var err error
 			if tc.isAdmin {
-				user, err = apiState.db.CreateAdmin(context.Background(), database.CreateAdminParams{
+				user, err = db.CreateAdmin(context.Background(), database.CreateAdminParams{
 					Username:       username,
 					HashedPassword: password,
 				})
 				require.NoError(t, err)
 				t.Logf("%+v", user)
 			} else {
-				user, err = apiState.db.CreateUser(context.Background(), database.CreateUserParams{
+				user, err = db.CreateUser(context.Background(), database.CreateUserParams{
 					Username:       username,
 					HashedPassword: password,
 				})
@@ -86,10 +86,10 @@ func TestHandlerMiddlewareAdminOnly(t *testing.T) {
 			}
 
 			userID := user.ID.Bytes
-			token, _ := createTokensDBHelperTest(t, userID, apiState)
+			token, _ := testutil.CreateTokensDBHelperTest(t, db, authConfig, userID)
 
 			if tc.deleteUser {
-				_, err = apiState.db.DeleteUser(context.Background(), user.ID)
+				_, err = db.DeleteUser(context.Background(), user.ID)
 				require.NoError(t, err)
 			}
 
@@ -101,13 +101,17 @@ func TestHandlerMiddlewareAdminOnly(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			handler := apiState.HandlerMiddlewareAdminOnly(dummyHandler)
+			// Admin function expects, on the happy path, to have a user on the context
+			ctx := ContextWithUser(req.Context(), userID)
+			req = req.WithContext(ctx)
+
+			handler := AdminOnly(db, authConfig)(dummyHandler)
 			handler.ServeHTTP(rr, req)
 
 			require.Equal(t, tc.statusCode, rr.Code)
 
 			if tc.errMessage != "" {
-				var errRes errorResponse
+				var errRes util.ErrorResponse
 				decoder := json.NewDecoder(rr.Body)
 				decoder.DisallowUnknownFields()
 				require.NoError(t, decoder.Decode(&errRes))
@@ -119,14 +123,6 @@ func TestHandlerMiddlewareAdminOnly(t *testing.T) {
 }
 
 func TestHandlerMiddlewareAuthentication(t *testing.T) {
-	apiState := NewState(
-		database.New(dbPool),
-		&auth.Config{
-			JWTsecret:            "somerandomsecret",
-			RefreshTokenDuration: time.Hour,
-			JWTDuration:          time.Minute,
-		})
-
 	testCases := []struct {
 		name                  string
 		hasHeaderJWT          bool
@@ -176,11 +172,18 @@ func TestHandlerMiddlewareAuthentication(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, cleanup("users"), "failed to clean the database")
-	userID := createUserDBTestHelper(t, apiState, "usertest", "passwordtest", false).ID.Bytes
-	token, refreshToken := createTokensDBHelperTest(t, userID, apiState)
+	require.NoError(t, testutil.Cleanup(dbPool, "users"), "failed to clean the database")
 
-	apiState.db.CreateRefreshToken(context.Background(),
+	db := database.New(dbPool)
+	authConfig := auth.Config{
+		JWTsecret:            "somerandomsecret",
+		RefreshTokenDuration: time.Hour,
+		JWTDuration:          time.Minute,
+	}
+	userID := testutil.CreateUserDBTestHelper(t, db, "usertest", "passwordtest", false).ID.Bytes
+	token, refreshToken := testutil.CreateTokensDBHelperTest(t, db, authConfig, userID)
+
+	db.CreateRefreshToken(context.Background(),
 		database.CreateRefreshTokenParams{
 			Token:     refreshToken,
 			UserID:    pgtype.UUID{Bytes: userID, Valid: true},
@@ -206,13 +209,13 @@ func TestHandlerMiddlewareAuthentication(t *testing.T) {
 				req.Header.Set("X-Refresh-Token", "Token "+tc.refreshTokenString)
 			}
 
-			handler := apiState.HandlerMiddlewareAuthentication(checkContextNext(t, userID))
+			handler := Authentication(db, authConfig)(checkContextNext(t, userID))
 			handler.ServeHTTP(rr, req)
 			require.Equal(t, tc.statusCode, rr.Code)
 
 			// check for error message
 			if tc.errMessage != "" {
-				var valsResponse errorResponse
+				var valsResponse util.ErrorResponse
 				decoder := json.NewDecoder(rr.Body)
 				decoder.DisallowUnknownFields()
 				require.NoError(t, decoder.Decode(&valsResponse))
@@ -221,13 +224,13 @@ func TestHandlerMiddlewareAuthentication(t *testing.T) {
 
 			if tc.receivesNewJWT {
 				// the old jwt should not be valid
-				_, err := auth.ValidateJWT(tc.jwtString, apiState.authConfig.JWTsecret)
+				_, err := auth.ValidateJWT(tc.jwtString, authConfig.JWTsecret)
 				require.Error(t, err)
 
 				// the new jwt should exist and be valid
 				gotJWT, err := auth.GetHeaderValueToken(rr.Result().Header, "Auth")
 				require.NoError(t, err)
-				_, err = auth.ValidateJWT(gotJWT, apiState.authConfig.JWTsecret)
+				_, err = auth.ValidateJWT(gotJWT, authConfig.JWTsecret)
 				assert.NoError(t, err)
 			}
 		})
