@@ -39,7 +39,7 @@ func (r *createSetReq) Valid(ctx context.Context) map[string]string {
 	// rest time validation
 	if r.RestTime > apiconstants.MaxRestTimeSeconds {
 		msg := fmt.Sprintf("rest time in seconds must be less than %d seconds", apiconstants.MaxRestTimeSeconds)
-		problems["order"] = "invalid rest time: " + msg
+		problems["rest_time"] = "invalid rest_time: " + msg
 	} else if r.RestTime < 0 { // negative rest times are mapped to 0
 		r.RestTime = 0
 	}

@@ -59,12 +59,12 @@ func (r *createSessionReq) Valid(ctx context.Context) map[string]string {
 
 	// duration minutes validation
 	if r.DurationMinutes < 0 {
-		problems["duration_minutes"] = "invalid duration_minutes: duration_minutes must be between 1 and %d minutes"
+		problems["duration_minutes"] = fmt.Sprintf("invalid duration_minutes: duration_minutes must be between 1 and %d minutes", math.MaxInt16)
 	} else {
 		if r.DurationMinutes > math.MaxInt16 {
 			problems["duration_minutes"] = fmt.Sprintf(
-				"invalid duration_minutes: duration_minutes must be between 1 and %d mminutes",
-				math.MaxUint16)
+				"invalid duration_minutes: duration_minutes must be between 1 and %d minutes",
+				math.MaxInt16)
 		}
 		r.durationMinutes = int16(r.DurationMinutes)
 	}
