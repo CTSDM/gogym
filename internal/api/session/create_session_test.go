@@ -111,7 +111,7 @@ func TestHandlerCreateSession(t *testing.T) {
 			if tc.hasEmptyJSON {
 				reader = bytes.NewReader([]byte("{}"))
 			} else if tc.hasJSON {
-				reqParams := createSessionReq{}
+				reqParams := sessionReq{}
 				if tc.name != "" {
 					reqParams.Name = tc.name
 				}
@@ -155,7 +155,7 @@ func TestHandlerCreateSession(t *testing.T) {
 				}
 				return
 			} else if tc.statusCode == http.StatusCreated {
-				var resParams createSessionRes
+				var resParams sessionRes
 				decoder := json.NewDecoder(rr.Body)
 				require.NoError(t, decoder.Decode(&resParams))
 				assert.NotEmpty(t, resParams.ID)
@@ -243,7 +243,7 @@ func TestValidateCreateSession(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			reqParams := createSessionReq{
+			reqParams := sessionReq{
 				Name:            tc.name,
 				Date:            tc.date,
 				StartTimestamp:  tc.startTimestamp,
@@ -293,7 +293,7 @@ func TestPopulateCreateSession(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			req := createSessionReq{
+			req := sessionReq{
 				Name: tc.name,
 				Date: tc.date,
 			}

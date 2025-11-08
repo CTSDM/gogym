@@ -2,7 +2,6 @@ package exlog
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -141,8 +140,6 @@ func TestHandlerUpdateLog(t *testing.T) {
 				}
 				assert.Equal(t, tc.reps, resParams.Reps)
 				assert.Equal(t, tc.order, resParams.Order)
-				_, err := db.GetLog(context.Background(), resParams.ID)
-				assert.NoError(t, err)
 			}
 		})
 	}

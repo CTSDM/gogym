@@ -1,6 +1,7 @@
 package exlog
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
@@ -15,7 +16,8 @@ func HandlerUpdateLog(db *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resourceID, ok := middleware.ResourceIDFromContext(r.Context())
 		if !ok {
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", nil)
+			err := errors.New("expected log id to be in the context")
+			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 		logID, ok := resourceID.(int64)
