@@ -14,6 +14,10 @@ ORDER BY date DESC;
 SELECT * FROM sessions
 WHERE id = $1;
 
+-- name: GetSessionOwnerID :one
+SELECT user_id FROM sessions
+WHERE id = $1;
+
 -- name: UpdateSession :one
 UPDATE sessions
 SET name = $1,

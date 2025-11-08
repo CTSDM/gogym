@@ -38,6 +38,10 @@ func addRoutes(mux *http.ServeMux, db *database.Queries, authConfig *auth.Config
 
 	// sets endpoints
 	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets", authentication(set.HandlerCreateSet(db)))
+	mux.HandleFunc("PUT /api/v1/sessions/{id}", middleware.Chain(
+		session.HandlerUpdateSession(db),
+		authentication,
+		middleware.Ownership("id", db.GetSessionOwnerID)))
 
 	// logs endpoints
 	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets/{setID}/logs",

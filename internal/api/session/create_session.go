@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type createSessionReq struct {
+type sessionReq struct {
 	Name            string `json:"name"`
 	Date            string `json:"date"`
 	StartTimestamp  int64  `json:"start_timestamp"` // UTC
@@ -26,13 +26,13 @@ type createSessionReq struct {
 	durationMinutes int16
 }
 
-type createSessionRes struct {
+type sessionRes struct {
 	ID string `json:"id"`
-	createSessionReq
+	sessionReq
 }
 
 // This method also populates with default values
-func (r *createSessionReq) Valid(ctx context.Context) map[string]string {
+func (r *sessionReq) Valid(ctx context.Context) map[string]string {
 	r.populate()
 	problems := make(map[string]string)
 
@@ -89,7 +89,7 @@ func HandlerCreateSession(db *database.Queries) http.HandlerFunc {
 		}
 
 		// Populate and validate the incoming request
-		reqParams, problems, err := validation.DecodeValid[*createSessionReq](r)
+		reqParams, problems, err := validation.DecodeValid[*sessionReq](r)
 		if len(problems) > 0 {
 			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
@@ -114,9 +114,9 @@ func HandlerCreateSession(db *database.Queries) http.HandlerFunc {
 		}
 
 		util.RespondWithJSON(w, http.StatusCreated,
-			createSessionRes{
+			sessionRes{
 				ID: session.ID.String(),
-				createSessionReq: createSessionReq{
+				sessionReq: sessionReq{
 					Name:            session.Name,
 					Date:            session.Date.Time.Format(apiconstants.DATE_LAYOUT),
 					StartTimestamp:  session.StartTimestamp.Time.Unix(),
@@ -127,7 +127,7 @@ func HandlerCreateSession(db *database.Queries) http.HandlerFunc {
 }
 
 // Populate needed empty fields: name and date
-func (r *createSessionReq) populate() {
+func (r *sessionReq) populate() {
 	if r.Name == "" {
 		now := time.Now()
 		r.Name = now.Format(apiconstants.DATE_TIME_LAYOUT)

@@ -147,13 +147,13 @@ func Ownership[T any](pathKey string, fn func(ctx context.Context, v T) (pgtype.
 					return
 				}
 				id = parsed
-			case uuid.UUID:
+			case pgtype.UUID:
 				parsed, err := uuid.Parse(idStr)
 				if err != nil {
 					util.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("invalid %s format", pathKey), nil)
 					return
 				}
-				id = parsed
+				id = pgtype.UUID{Bytes: parsed, Valid: true}
 			default:
 				err := fmt.Errorf("could not recognize the type for %s", pathKey)
 				util.RespondWithError(w, http.StatusInternalServerError, "could not process the request", err)

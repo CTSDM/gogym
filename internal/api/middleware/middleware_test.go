@@ -346,16 +346,16 @@ func TestOwnershipUUID(t *testing.T) {
 		errMessage string
 		pathKey    string
 		pathValue  string
-		userID     uuid.UUID
-		ownerFn    func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error)
+		userID     pgtype.UUID
+		ownerFn    func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
 	}{
 		{
 			name:       "happy path: user is owner",
 			statusCode: http.StatusOK,
 			pathKey:    "sessionID",
 			pathValue:  resourceID.String(),
-			userID:     user1ID,
-			ownerFn: func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error) {
+			userID:     pgtype.UUID{Bytes: user1ID, Valid: true},
+			ownerFn: func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
 				return pgtype.UUID{Bytes: user1ID, Valid: true}, nil
 			},
 		},
@@ -365,8 +365,8 @@ func TestOwnershipUUID(t *testing.T) {
 			errMessage: "user is not owner",
 			pathKey:    "sessionID",
 			pathValue:  resourceID.String(),
-			userID:     user1ID,
-			ownerFn: func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error) {
+			userID:     pgtype.UUID{Bytes: user1ID, Valid: true},
+			ownerFn: func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
 				return pgtype.UUID{Bytes: user2ID, Valid: true}, nil
 			},
 		},
@@ -376,8 +376,8 @@ func TestOwnershipUUID(t *testing.T) {
 			errMessage: "invalid sessionID format",
 			pathKey:    "sessionID",
 			pathValue:  "invalid-uuid",
-			userID:     user1ID,
-			ownerFn: func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error) {
+			userID:     pgtype.UUID{Bytes: user1ID, Valid: true},
+			ownerFn: func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
 				return pgtype.UUID{Bytes: user1ID, Valid: true}, nil
 			},
 		},
@@ -387,8 +387,8 @@ func TestOwnershipUUID(t *testing.T) {
 			errMessage: "not found",
 			pathKey:    "sessionID",
 			pathValue:  uuid.New().String(),
-			userID:     user1ID,
-			ownerFn: func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error) {
+			userID:     pgtype.UUID{Bytes: user1ID, Valid: true},
+			ownerFn: func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
 				return pgtype.UUID{}, pgx.ErrNoRows
 			},
 		},
@@ -398,8 +398,8 @@ func TestOwnershipUUID(t *testing.T) {
 			errMessage: "something went wrong",
 			pathKey:    "sessionID",
 			pathValue:  resourceID.String(),
-			userID:     user1ID,
-			ownerFn: func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error) {
+			userID:     pgtype.UUID{Bytes: user1ID, Valid: true},
+			ownerFn: func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
 				return pgtype.UUID{}, fmt.Errorf("database error")
 			},
 		},
@@ -410,7 +410,7 @@ func TestOwnershipUUID(t *testing.T) {
 			req := httptest.NewRequest("GET", "/test/"+tc.pathValue, nil)
 			req.SetPathValue(tc.pathKey, tc.pathValue)
 
-			ctx := ContextWithUser(req.Context(), tc.userID)
+			ctx := ContextWithUser(req.Context(), tc.userID.Bytes)
 			req = req.WithContext(ctx)
 
 			rr := httptest.NewRecorder()
@@ -418,7 +418,9 @@ func TestOwnershipUUID(t *testing.T) {
 			dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				rid, ok := ResourceIDFromContext(r.Context())
 				require.True(t, ok)
-				require.Equal(t, resourceID, rid.(uuid.UUID))
+				require.Equal(t,
+					pgtype.UUID{Bytes: resourceID, Valid: true}.Bytes,
+					rid.(pgtype.UUID).Bytes)
 				w.WriteHeader(http.StatusOK)
 			})
 
