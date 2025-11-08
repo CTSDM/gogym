@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -173,6 +175,7 @@ func TestHandlerMiddlewareAuthentication(t *testing.T) {
 	}
 
 	require.NoError(t, testutil.Cleanup(dbPool, "users"), "failed to clean the database")
+	require.NoError(t, testutil.Cleanup(dbPool, "refresh_tokens"), "failed to clean the database")
 
 	db := database.New(dbPool)
 	authConfig := &auth.Config{
@@ -182,13 +185,6 @@ func TestHandlerMiddlewareAuthentication(t *testing.T) {
 	}
 	userID := testutil.CreateUserDBTestHelper(t, db, "usertest", "passwordtest", false).ID.Bytes
 	token, refreshToken := testutil.CreateTokensDBHelperTest(t, db, authConfig, userID)
-
-	db.CreateRefreshToken(context.Background(),
-		database.CreateRefreshTokenParams{
-			Token:     refreshToken,
-			UserID:    pgtype.UUID{Bytes: userID, Valid: true},
-			ExpiresAt: pgtype.Timestamp{Time: time.Now().Add(time.Hour), Valid: true},
-		})
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -232,6 +228,211 @@ func TestHandlerMiddlewareAuthentication(t *testing.T) {
 				require.NoError(t, err)
 				_, err = auth.ValidateJWT(gotJWT, authConfig.JWTsecret)
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestOwnershipInt64(t *testing.T) {
+	user1ID := uuid.New()
+	user2ID := uuid.New()
+
+	testCases := []struct {
+		name       string
+		statusCode int
+		errMessage string
+		pathKey    string
+		pathValue  string
+		userID     uuid.UUID
+		ownerFn    func(ctx context.Context, id int64) (pgtype.UUID, error)
+	}{
+		{
+			name:       "happy path: user is owner",
+			statusCode: http.StatusOK,
+			pathKey:    "id",
+			pathValue:  "123",
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id int64) (pgtype.UUID, error) {
+				return pgtype.UUID{Bytes: user1ID, Valid: true}, nil
+			},
+		},
+		{
+			name:       "user is not owner",
+			statusCode: http.StatusForbidden,
+			errMessage: "user is not owner",
+			pathKey:    "id",
+			pathValue:  "123",
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id int64) (pgtype.UUID, error) {
+				return pgtype.UUID{Bytes: user2ID, Valid: true}, nil
+			},
+		},
+		{
+			name:       "invalid path value format",
+			statusCode: http.StatusBadRequest,
+			errMessage: "invalid id format",
+			pathKey:    "id",
+			pathValue:  "invalid",
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id int64) (pgtype.UUID, error) {
+				return pgtype.UUID{Bytes: user1ID, Valid: true}, nil
+			},
+		},
+		{
+			name:       "resource not found",
+			statusCode: http.StatusNotFound,
+			errMessage: "not found",
+			pathKey:    "id",
+			pathValue:  "999999",
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id int64) (pgtype.UUID, error) {
+				return pgtype.UUID{}, pgx.ErrNoRows
+			},
+		},
+		{
+			name:       "database error",
+			statusCode: http.StatusInternalServerError,
+			errMessage: "something went wrong",
+			pathKey:    "id",
+			pathValue:  "123",
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id int64) (pgtype.UUID, error) {
+				return pgtype.UUID{}, fmt.Errorf("database error")
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("PUT", "/test/"+tc.pathValue, nil)
+			req.SetPathValue(tc.pathKey, tc.pathValue)
+
+			ctx := ContextWithUser(req.Context(), tc.userID)
+			req = req.WithContext(ctx)
+
+			rr := httptest.NewRecorder()
+
+			dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				resourceID, ok := ResourceIDFromContext(r.Context())
+				require.True(t, ok)
+				require.Equal(t, int64(123), resourceID.(int64))
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := Ownership(tc.pathKey, tc.ownerFn)(dummyHandler)
+			handler.ServeHTTP(rr, req)
+
+			require.Equal(t, tc.statusCode, rr.Code)
+
+			if tc.errMessage != "" {
+				var errRes util.ErrorResponse
+				decoder := json.NewDecoder(rr.Body)
+				decoder.DisallowUnknownFields()
+				require.NoError(t, decoder.Decode(&errRes))
+				assert.Equal(t, tc.errMessage, errRes.Error)
+			}
+		})
+	}
+}
+
+func TestOwnershipUUID(t *testing.T) {
+	user1ID := uuid.New()
+	user2ID := uuid.New()
+	resourceID := uuid.New()
+
+	testCases := []struct {
+		name       string
+		statusCode int
+		errMessage string
+		pathKey    string
+		pathValue  string
+		userID     uuid.UUID
+		ownerFn    func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error)
+	}{
+		{
+			name:       "happy path: user is owner",
+			statusCode: http.StatusOK,
+			pathKey:    "sessionID",
+			pathValue:  resourceID.String(),
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error) {
+				return pgtype.UUID{Bytes: user1ID, Valid: true}, nil
+			},
+		},
+		{
+			name:       "user is not owner",
+			statusCode: http.StatusForbidden,
+			errMessage: "user is not owner",
+			pathKey:    "sessionID",
+			pathValue:  resourceID.String(),
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error) {
+				return pgtype.UUID{Bytes: user2ID, Valid: true}, nil
+			},
+		},
+		{
+			name:       "invalid uuid format",
+			statusCode: http.StatusBadRequest,
+			errMessage: "invalid sessionID format",
+			pathKey:    "sessionID",
+			pathValue:  "invalid-uuid",
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error) {
+				return pgtype.UUID{Bytes: user1ID, Valid: true}, nil
+			},
+		},
+		{
+			name:       "resource not found",
+			statusCode: http.StatusNotFound,
+			errMessage: "not found",
+			pathKey:    "sessionID",
+			pathValue:  uuid.New().String(),
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error) {
+				return pgtype.UUID{}, pgx.ErrNoRows
+			},
+		},
+		{
+			name:       "database error",
+			statusCode: http.StatusInternalServerError,
+			errMessage: "something went wrong",
+			pathKey:    "sessionID",
+			pathValue:  resourceID.String(),
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id uuid.UUID) (pgtype.UUID, error) {
+				return pgtype.UUID{}, fmt.Errorf("database error")
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/test/"+tc.pathValue, nil)
+			req.SetPathValue(tc.pathKey, tc.pathValue)
+
+			ctx := ContextWithUser(req.Context(), tc.userID)
+			req = req.WithContext(ctx)
+
+			rr := httptest.NewRecorder()
+
+			dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				rid, ok := ResourceIDFromContext(r.Context())
+				require.True(t, ok)
+				require.Equal(t, resourceID, rid.(uuid.UUID))
+				w.WriteHeader(http.StatusOK)
+			})
+
+			handler := Ownership(tc.pathKey, tc.ownerFn)(dummyHandler)
+			handler.ServeHTTP(rr, req)
+
+			require.Equal(t, tc.statusCode, rr.Code)
+
+			if tc.errMessage != "" {
+				var errRes util.ErrorResponse
+				decoder := json.NewDecoder(rr.Body)
+				decoder.DisallowUnknownFields()
+				require.NoError(t, decoder.Decode(&errRes))
+				assert.Equal(t, tc.errMessage, errRes.Error)
 			}
 		})
 	}

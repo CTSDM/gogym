@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
@@ -29,8 +28,9 @@ func TestHandlerUpdateLog(t *testing.T) {
 		weight       float64
 		reps         int32
 		order        int32
-		logID        int32
+		logID        int64
 		userID       uuid.UUID
+		hasLogID     bool
 	}{
 		{
 			name:       "happy path",
@@ -40,6 +40,7 @@ func TestHandlerUpdateLog(t *testing.T) {
 			weight:     100.5,
 			reps:       10,
 			order:      1,
+			hasLogID:   true,
 		},
 		{
 			name:       "log id does not exist",
@@ -50,18 +51,18 @@ func TestHandlerUpdateLog(t *testing.T) {
 			order:      1,
 			setID:      99999,
 			logID:      -5, // ids are always positive
+			hasLogID:   true,
 			errMsg:     []string{"not found"},
 		},
 		{
-			name:       "user is not the owner",
-			statusCode: http.StatusForbidden,
+			name:       "log id not found in the context",
+			statusCode: http.StatusInternalServerError,
 			hasJSON:    true,
 			weight:     100,
 			reps:       10,
 			order:      1,
 			setID:      99999,
-			userID:     uuid.New(),
-			errMsg:     []string{"user is not the owner"},
+			errMsg:     []string{"something went wrong"},
 		},
 	}
 
@@ -99,11 +100,6 @@ func TestHandlerUpdateLog(t *testing.T) {
 			req, err := http.NewRequest("POST", "/test", reader)
 			require.NoError(t, err, "unexpected error while creating the request")
 
-			// set up the path value
-			req.SetPathValue("id", strconv.FormatInt(logID, 10))
-			if tc.logID != 0 {
-				req.SetPathValue("id", strconv.FormatInt(int64(tc.logID), 10))
-			}
 			// set up the user id as the owner
 			ctx := req.Context()
 			if tc.userID != [16]byte{} {
@@ -111,13 +107,20 @@ func TestHandlerUpdateLog(t *testing.T) {
 			} else {
 				ctx = middleware.ContextWithUser(ctx, user.ID.Bytes)
 			}
-			req = req.WithContext(ctx)
+			// set up the log id in the context using ContextWithResource
+			if tc.hasLogID {
+				if tc.logID != 0 {
+					ctx = middleware.ContextWithResourceID(ctx, tc.logID)
+				} else {
+					ctx = middleware.ContextWithResourceID(ctx, logID)
+				}
+			}
 
+			req = req.WithContext(ctx)
 			rr := httptest.NewRecorder()
 
 			HandlerUpdateLog(db).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
-				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())
 			}
 			if tc.statusCode > 399 {

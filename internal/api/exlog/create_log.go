@@ -48,7 +48,7 @@ func (r *logReq) Valid(ctx context.Context) map[string]string {
 func HandlerCreateLog(db *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// set id must be a valid number
-		setID, err := strconv.Atoi(r.PathValue("setID"))
+		setID, err := strconv.ParseInt(r.PathValue("setID"), 10, 64)
 		if err != nil {
 			util.RespondWithError(w, http.StatusNotFound, "set ID not found", err)
 			return
@@ -64,7 +64,7 @@ func HandlerCreateLog(db *database.Queries) http.HandlerFunc {
 		}
 
 		// Check set id against database
-		if _, err := db.GetSet(r.Context(), int64(setID)); err != nil {
+		if _, err := db.GetSet(r.Context(), setID); err != nil {
 			util.RespondWithError(w, http.StatusNotFound, "set ID not found", err)
 			return
 		}
@@ -79,7 +79,7 @@ func HandlerCreateLog(db *database.Queries) http.HandlerFunc {
 			Weight:     pgtype.Float8{Float64: reqParams.Weight, Valid: true},
 			Reps:       reqParams.Reps,
 			LogsOrder:  reqParams.Order,
-			SetID:      int64(setID),
+			SetID:      setID,
 			ExerciseID: reqParams.ExerciseID,
 		}
 		newLog, err := db.CreateLog(r.Context(), dbParams)
@@ -90,7 +90,7 @@ func HandlerCreateLog(db *database.Queries) http.HandlerFunc {
 
 		util.RespondWithJSON(w, http.StatusCreated, logRes{
 			ID:    newLog.ID,
-			SetID: int64(setID),
+			SetID: setID,
 			logReq: logReq{
 				ExerciseID: newLog.ExerciseID,
 				Weight:     newLog.Weight.Float64,
