@@ -23,7 +23,7 @@ type createSetReq struct {
 }
 
 type createSetRes struct {
-	ID        int    `json:"id"`
+	ID        int64  `json:"id"`
 	SessionID string `json:"session_id"`
 	createSetReq
 }
@@ -95,7 +95,7 @@ func HandlerCreateSet(db *database.Queries) http.HandlerFunc {
 
 		util.RespondWithJSON(w, http.StatusCreated,
 			createSetRes{
-				ID:        int(set.ID),
+				ID:        set.ID,
 				SessionID: set.SessionID.String(),
 				createSetReq: createSetReq{
 					SetOrder: set.SetOrder,

@@ -2,7 +2,9 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/CTSDM/gogym/internal/api/util"
@@ -18,6 +20,7 @@ type contextKey int
 const (
 	_ contextKey = iota
 	userKey
+	resourceIDKey
 )
 
 // middlewares are applied from left from left to right
@@ -35,6 +38,18 @@ func ContextWithUser(ctx context.Context, userID uuid.UUID) context.Context {
 func UserFromContext(ctx context.Context) (uuid.UUID, bool) {
 	userID, ok := ctx.Value(userKey).(uuid.UUID)
 	return userID, ok
+}
+
+func ContextWithResourceID(ctx context.Context, resourceID any) context.Context {
+	return context.WithValue(ctx, resourceIDKey, resourceID)
+}
+
+func ResourceIDFromContext(ctx context.Context) (any, bool) {
+	resourceID := ctx.Value(resourceIDKey)
+	if resourceID == nil {
+		return nil, false
+	}
+	return resourceID, true
 }
 
 func Authentication(db *database.Queries, authConfig *auth.Config) func(next http.HandlerFunc) http.HandlerFunc {
@@ -109,6 +124,56 @@ func AdminOnly(db *database.Queries) func(next http.HandlerFunc) http.HandlerFun
 				return
 			}
 
+			next.ServeHTTP(w, r)
+		}
+	}
+}
+
+func Ownership[T any](pathKey string, fn func(ctx context.Context, v T) (pgtype.UUID, error)) func(next http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			userID, _ := UserFromContext(ctx)
+
+			idStr := r.PathValue(pathKey)
+			var id any
+			var zero T
+
+			switch any(zero).(type) {
+			case int64:
+				parsed, err := strconv.ParseInt(idStr, 10, 64)
+				if err != nil {
+					util.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("invalid %s format", pathKey), nil)
+					return
+				}
+				id = parsed
+			case uuid.UUID:
+				parsed, err := uuid.Parse(idStr)
+				if err != nil {
+					util.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("invalid %s format", pathKey), nil)
+					return
+				}
+				id = parsed
+			default:
+				err := fmt.Errorf("could not recognize the type for %s", pathKey)
+				util.RespondWithError(w, http.StatusInternalServerError, "could not process the request", err)
+				return
+			}
+
+			ownerID, err := fn(r.Context(), id.(T))
+			if err == pgx.ErrNoRows {
+				util.RespondWithError(w, http.StatusNotFound, "not found", err)
+				return
+			} else if err != nil {
+				util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+				return
+			}
+			if ownerID.Bytes != userID {
+				util.RespondWithError(w, http.StatusForbidden, "user is not owner", nil)
+				return
+			}
+			ctx = ContextWithResourceID(ctx, id)
+			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
 		}
 	}

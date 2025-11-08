@@ -11,6 +11,10 @@ import (
 
 // taken from Mat Ryer's article
 // https://grafana.com/blog/2024/02/09/how-i-write-http-services-in-go-after-13-years/
+type Validator interface {
+	Valid(ctx context.Context) (problems map[string]string)
+}
+
 func DecodeValid[T Validator](r *http.Request) (T, map[string]string, error) {
 	var v T
 	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
@@ -20,10 +24,6 @@ func DecodeValid[T Validator](r *http.Request) (T, map[string]string, error) {
 		return v, problems, fmt.Errorf("invalid %T: %d problems", v, len(problems))
 	}
 	return v, nil, nil
-}
-
-type Validator interface {
-	Valid(ctx context.Context) (problems map[string]string)
 }
 
 var ErrMaxMinIncoherent = errors.New("min and max values are swapped")

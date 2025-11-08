@@ -134,7 +134,7 @@ func TestCreateSet(t *testing.T) {
 				}
 				assert.Equal(t, tc.order, resParams.SetOrder)
 				// check that the created user is on the database
-				_, err := db.GetSet(context.Background(), int64(resParams.ID))
+				_, err := db.GetSet(context.Background(), resParams.ID)
 				assert.NoError(t, err)
 			}
 		})
