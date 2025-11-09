@@ -37,3 +37,8 @@ SET name = $1,
     duration_minutes = $4
 WHERE id = $5
 RETURNING *;
+
+-- name: DeleteSession :one
+DELETE FROM sessions
+WHERE id = $1 and user_id = $2
+RETURNING *;

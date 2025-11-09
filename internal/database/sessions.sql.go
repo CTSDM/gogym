@@ -47,6 +47,31 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 	return i, err
 }
 
+const deleteSession = `-- name: DeleteSession :one
+DELETE FROM sessions
+WHERE id = $1 and user_id = $2
+RETURNING id, name, date, start_timestamp, duration_minutes, user_id
+`
+
+type DeleteSessionParams struct {
+	ID     pgtype.UUID
+	UserID pgtype.UUID
+}
+
+func (q *Queries) DeleteSession(ctx context.Context, arg DeleteSessionParams) (Session, error) {
+	row := q.db.QueryRow(ctx, deleteSession, arg.ID, arg.UserID)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Date,
+		&i.StartTimestamp,
+		&i.DurationMinutes,
+		&i.UserID,
+	)
+	return i, err
+}
+
 const getNumberSessionsByUserID = `-- name: GetNumberSessionsByUserID :one
 SELECT count(id) FROM sessions
 WHERE user_id = $1
