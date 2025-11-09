@@ -107,6 +107,41 @@ func (q *Queries) GetLogOwnerID(ctx context.Context, id int64) (uuid.UUID, error
 	return user_id, err
 }
 
+const getLogsBySetID = `-- name: GetLogsBySetID :many
+SELECT id, created_at, last_modified_at, weight, reps, logs_order, exercise_id, set_id FROM logs
+WHERE set_id = $1
+ORDER BY logs_order ASC
+`
+
+func (q *Queries) GetLogsBySetID(ctx context.Context, setID int64) ([]Log, error) {
+	rows, err := q.db.Query(ctx, getLogsBySetID, setID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Log
+	for rows.Next() {
+		var i Log
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.LastModifiedAt,
+			&i.Weight,
+			&i.Reps,
+			&i.LogsOrder,
+			&i.ExerciseID,
+			&i.SetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLogsBySetIDs = `-- name: GetLogsBySetIDs :many
 SELECT id, created_at, last_modified_at, weight, reps, logs_order, exercise_id, set_id FROM logs
 WHERE set_id = ANY($1::bigint[])

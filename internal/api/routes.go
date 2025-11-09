@@ -51,6 +51,7 @@ func addRoutes(mux *http.ServeMux, db *database.Queries, authConfig *auth.Config
 		set.HandlerDeleteSet(db),
 		authentication,
 		middleware.Ownership("id", db.GetSetOwnerID)))
+	mux.HandleFunc("GET /api/v1/sets/{id}", authentication(set.HandlerGetSet(db)))
 
 	// logs endpoints
 	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets/{setID}/logs",

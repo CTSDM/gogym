@@ -26,6 +26,11 @@ SELECT * FROM logs
 WHERE set_id = ANY($1::bigint[])
 ORDER BY set_id, logs_order;
 
+-- name: GetLogsBySetID :many
+SELECT * FROM logs
+WHERE set_id = $1
+ORDER BY logs_order ASC;
+
 -- name: DeleteLog :one
 DELETE FROM logs
 WHERE id = $1
