@@ -11,3 +11,14 @@ WHERE id = $1;
 SELECT * FROM sets
 WHERE session_id = ANY($1::uuid[])
 ORDER BY session_id, set_order;
+
+-- name: DeleteSet :one
+DELETE FROM sets
+WHERE id = $1
+RETURNING *;
+
+-- name: GetSetOwnerID :one
+SELECT sessions.user_id FROM sets
+JOIN sessions
+ON sets.session_id = sessions.id
+WHERE sets.id = $1;
