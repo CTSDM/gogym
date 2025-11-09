@@ -82,7 +82,7 @@ func HandlerCreateSession(db *database.Queries) http.HandlerFunc {
 		}
 
 		// Check userID against database
-		if _, err := db.GetUser(r.Context(), pgtype.UUID{Bytes: userID, Valid: true}); err != nil {
+		if _, err := db.GetUser(r.Context(), userID); err != nil {
 			util.RespondWithError(w, http.StatusUnauthorized, "Invalid credentials",
 				fmt.Errorf("could not find the userID provied by the JWT in the database: %w", err))
 			return
@@ -102,7 +102,7 @@ func HandlerCreateSession(db *database.Queries) http.HandlerFunc {
 		dbParams := database.CreateSessionParams{
 			Name:            reqParams.Name,
 			Date:            pgtype.Date{Time: reqParams.date, Valid: true},
-			UserID:          pgtype.UUID{Bytes: userID, Valid: true},
+			UserID:          userID,
 			StartTimestamp:  pgtype.Timestamp{Time: reqParams.startTimestamp, Valid: true},
 			DurationMinutes: pgtype.Int2{Int16: reqParams.durationMinutes, Valid: true},
 		}

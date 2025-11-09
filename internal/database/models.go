@@ -5,6 +5,7 @@
 package database
 
 import (
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -30,28 +31,28 @@ type RefreshToken struct {
 	CreatedAt pgtype.Timestamp
 	ExpiresAt pgtype.Timestamp
 	RevokedAt pgtype.Timestamp
-	UserID    pgtype.UUID
+	UserID    uuid.UUID
 }
 
 type Session struct {
-	ID              pgtype.UUID
+	ID              uuid.UUID
 	Name            string
 	Date            pgtype.Date
 	StartTimestamp  pgtype.Timestamp
 	DurationMinutes pgtype.Int2
-	UserID          pgtype.UUID
+	UserID          uuid.UUID
 }
 
 type Set struct {
 	ID         int64
 	SetOrder   int32
 	RestTime   pgtype.Int4
-	SessionID  pgtype.UUID
+	SessionID  uuid.UUID
 	ExerciseID int32
 }
 
 type User struct {
-	ID             pgtype.UUID
+	ID             uuid.UUID
 	Username       string
 	HashedPassword string
 	IsAdmin        pgtype.Bool

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/api/validation"
 	"github.com/CTSDM/gogym/internal/apiconstants"
@@ -15,18 +14,13 @@ import (
 
 func HandlerUpdateSession(db *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		resourceID, ok := middleware.ResourceIDFromContext(r.Context())
-		if !ok {
+		sessionID, err := retrieveParseUUIDFromContext(r.Context())
+		if err != nil {
 			err := errors.New("expected session id to be in the context")
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
-		sessionResource, ok := resourceID.(pgtype.UUID)
-		if !ok {
-			err := errors.New("could not type coerce session id into uuid")
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
-			return
-		}
+
 		// decode and validate
 		reqParams, problems, err := validation.DecodeValid[*sessionReq](r)
 		if len(problems) > 0 {
@@ -39,7 +33,7 @@ func HandlerUpdateSession(db *database.Queries) http.HandlerFunc {
 
 		// Update the entry
 		dbParams := database.UpdateSessionParams{
-			ID:             pgtype.UUID{Bytes: sessionResource.Bytes, Valid: true},
+			ID:             sessionID,
 			Name:           reqParams.Name,
 			Date:           pgtype.Date{Time: reqParams.date, Valid: true},
 			StartTimestamp: pgtype.Timestamp{Time: reqParams.startTimestamp, Valid: true},

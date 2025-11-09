@@ -10,7 +10,6 @@ import (
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func HandlerDeleteSession(db *database.Queries) http.HandlerFunc {
@@ -30,8 +29,8 @@ func HandlerDeleteSession(db *database.Queries) http.HandlerFunc {
 
 		// delete the resource
 		if _, err := db.DeleteSession(r.Context(), database.DeleteSessionParams{
-			UserID: pgtype.UUID{Bytes: userID, Valid: true},
-			ID:     pgtype.UUID{Bytes: sessionID, Valid: true},
+			UserID: userID,
+			ID:     sessionID,
 		}); err == pgx.ErrNoRows {
 			util.RespondWithError(w, http.StatusNotFound, "not found", nil)
 			return
@@ -50,9 +49,9 @@ func retrieveParseUUIDFromContext(ctx context.Context) (uuid.UUID, error) {
 		return uuid.UUID{}, errors.New("could not find user id in the context")
 	}
 	// coerce the resource into uuid
-	sessionID, ok := resourceID.(pgtype.UUID)
+	sessionID, ok := resourceID.(uuid.UUID)
 	if !ok {
 		return uuid.UUID{}, errors.New("could not type coerce session id into uuid")
 	}
-	return sessionID.Bytes, nil
+	return sessionID, nil
 }

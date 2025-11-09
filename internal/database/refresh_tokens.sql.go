@@ -8,6 +8,7 @@ package database
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -20,7 +21,7 @@ RETURNING token, created_at, expires_at, revoked_at, user_id
 type CreateRefreshTokenParams struct {
 	Token     string
 	ExpiresAt pgtype.Timestamp
-	UserID    pgtype.UUID
+	UserID    uuid.UUID
 }
 
 func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error) {
@@ -64,7 +65,7 @@ ORDER BY expires_at DESC
 LIMIT 1
 `
 
-func (q *Queries) GetRefreshTokenByUserID(ctx context.Context, userID pgtype.UUID) (RefreshToken, error) {
+func (q *Queries) GetRefreshTokenByUserID(ctx context.Context, userID uuid.UUID) (RefreshToken, error) {
 	row := q.db.QueryRow(ctx, getRefreshTokenByUserID, userID)
 	var i RefreshToken
 	err := row.Scan(

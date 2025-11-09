@@ -8,6 +8,7 @@ package database
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -77,9 +78,9 @@ ON sets.session_id = sessions.id
 WHERE logs.id = $1
 `
 
-func (q *Queries) GetLogOwnerID(ctx context.Context, id int64) (pgtype.UUID, error) {
+func (q *Queries) GetLogOwnerID(ctx context.Context, id int64) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getLogOwnerID, id)
-	var user_id pgtype.UUID
+	var user_id uuid.UUID
 	err := row.Scan(&user_id)
 	return user_id, err
 }

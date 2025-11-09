@@ -102,7 +102,7 @@ func TestHandlerCreateSession(t *testing.T) {
 
 	testutil.Cleanup(dbPool, "users")
 	db := database.New(dbPool)
-	userID := testutil.CreateUserDBTestHelper(t, db, "usertest", "passwordtest", false).ID.Bytes
+	userID := testutil.CreateUserDBTestHelper(t, db, "usertest", "passwordtest", false).ID
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {

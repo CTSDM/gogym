@@ -16,7 +16,6 @@ import (
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -87,7 +86,7 @@ func TestAdminOnly(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			userID := user.ID.Bytes
+			userID := user.ID
 			token, _ := testutil.CreateTokensDBHelperTest(t, db, authConfig, userID)
 
 			if tc.deleteUser {
@@ -183,7 +182,7 @@ func TestHandlerMiddlewareAuthentication(t *testing.T) {
 		RefreshTokenDuration: time.Hour,
 		JWTDuration:          time.Minute,
 	}
-	userID := testutil.CreateUserDBTestHelper(t, db, "usertest", "passwordtest", false).ID.Bytes
+	userID := testutil.CreateUserDBTestHelper(t, db, "usertest", "passwordtest", false).ID
 	token, refreshToken := testutil.CreateTokensDBHelperTest(t, db, authConfig, userID)
 
 	for _, tc := range testCases {
@@ -244,7 +243,7 @@ func TestOwnershipInt64(t *testing.T) {
 		pathKey    string
 		pathValue  string
 		userID     uuid.UUID
-		ownerFn    func(ctx context.Context, id int64) (pgtype.UUID, error)
+		ownerFn    func(ctx context.Context, id int64) (uuid.UUID, error)
 	}{
 		{
 			name:       "happy path: user is owner",
@@ -252,8 +251,8 @@ func TestOwnershipInt64(t *testing.T) {
 			pathKey:    "id",
 			pathValue:  "123",
 			userID:     user1ID,
-			ownerFn: func(ctx context.Context, id int64) (pgtype.UUID, error) {
-				return pgtype.UUID{Bytes: user1ID, Valid: true}, nil
+			ownerFn: func(ctx context.Context, id int64) (uuid.UUID, error) {
+				return user1ID, nil
 			},
 		},
 		{
@@ -263,8 +262,8 @@ func TestOwnershipInt64(t *testing.T) {
 			pathKey:    "id",
 			pathValue:  "123",
 			userID:     user1ID,
-			ownerFn: func(ctx context.Context, id int64) (pgtype.UUID, error) {
-				return pgtype.UUID{Bytes: user2ID, Valid: true}, nil
+			ownerFn: func(ctx context.Context, id int64) (uuid.UUID, error) {
+				return user2ID, nil
 			},
 		},
 		{
@@ -274,8 +273,8 @@ func TestOwnershipInt64(t *testing.T) {
 			pathKey:    "id",
 			pathValue:  "invalid",
 			userID:     user1ID,
-			ownerFn: func(ctx context.Context, id int64) (pgtype.UUID, error) {
-				return pgtype.UUID{Bytes: user1ID, Valid: true}, nil
+			ownerFn: func(ctx context.Context, id int64) (uuid.UUID, error) {
+				return user1ID, nil
 			},
 		},
 		{
@@ -285,8 +284,8 @@ func TestOwnershipInt64(t *testing.T) {
 			pathKey:    "id",
 			pathValue:  "999999",
 			userID:     user1ID,
-			ownerFn: func(ctx context.Context, id int64) (pgtype.UUID, error) {
-				return pgtype.UUID{}, pgx.ErrNoRows
+			ownerFn: func(ctx context.Context, id int64) (uuid.UUID, error) {
+				return uuid.UUID{}, pgx.ErrNoRows
 			},
 		},
 		{
@@ -296,8 +295,8 @@ func TestOwnershipInt64(t *testing.T) {
 			pathKey:    "id",
 			pathValue:  "123",
 			userID:     user1ID,
-			ownerFn: func(ctx context.Context, id int64) (pgtype.UUID, error) {
-				return pgtype.UUID{}, fmt.Errorf("database error")
+			ownerFn: func(ctx context.Context, id int64) (uuid.UUID, error) {
+				return uuid.UUID{}, fmt.Errorf("database error")
 			},
 		},
 	}
@@ -346,17 +345,17 @@ func TestOwnershipUUID(t *testing.T) {
 		errMessage string
 		pathKey    string
 		pathValue  string
-		userID     pgtype.UUID
-		ownerFn    func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
+		userID     uuid.UUID
+		ownerFn    func(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	}{
 		{
 			name:       "happy path: user is owner",
 			statusCode: http.StatusOK,
 			pathKey:    "sessionID",
 			pathValue:  resourceID.String(),
-			userID:     pgtype.UUID{Bytes: user1ID, Valid: true},
-			ownerFn: func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
-				return pgtype.UUID{Bytes: user1ID, Valid: true}, nil
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+				return user1ID, nil
 			},
 		},
 		{
@@ -365,9 +364,9 @@ func TestOwnershipUUID(t *testing.T) {
 			errMessage: "user is not owner",
 			pathKey:    "sessionID",
 			pathValue:  resourceID.String(),
-			userID:     pgtype.UUID{Bytes: user1ID, Valid: true},
-			ownerFn: func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
-				return pgtype.UUID{Bytes: user2ID, Valid: true}, nil
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+				return user2ID, nil
 			},
 		},
 		{
@@ -376,9 +375,9 @@ func TestOwnershipUUID(t *testing.T) {
 			errMessage: "invalid sessionID format",
 			pathKey:    "sessionID",
 			pathValue:  "invalid-uuid",
-			userID:     pgtype.UUID{Bytes: user1ID, Valid: true},
-			ownerFn: func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
-				return pgtype.UUID{Bytes: user1ID, Valid: true}, nil
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+				return user1ID, nil
 			},
 		},
 		{
@@ -387,9 +386,9 @@ func TestOwnershipUUID(t *testing.T) {
 			errMessage: "not found",
 			pathKey:    "sessionID",
 			pathValue:  uuid.New().String(),
-			userID:     pgtype.UUID{Bytes: user1ID, Valid: true},
-			ownerFn: func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
-				return pgtype.UUID{}, pgx.ErrNoRows
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+				return uuid.UUID{}, pgx.ErrNoRows
 			},
 		},
 		{
@@ -398,9 +397,9 @@ func TestOwnershipUUID(t *testing.T) {
 			errMessage: "something went wrong",
 			pathKey:    "sessionID",
 			pathValue:  resourceID.String(),
-			userID:     pgtype.UUID{Bytes: user1ID, Valid: true},
-			ownerFn: func(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
-				return pgtype.UUID{}, fmt.Errorf("database error")
+			userID:     user1ID,
+			ownerFn: func(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+				return uuid.UUID{}, fmt.Errorf("database error")
 			},
 		},
 	}
@@ -410,7 +409,7 @@ func TestOwnershipUUID(t *testing.T) {
 			req := httptest.NewRequest("GET", "/test/"+tc.pathValue, nil)
 			req.SetPathValue(tc.pathKey, tc.pathValue)
 
-			ctx := ContextWithUser(req.Context(), tc.userID.Bytes)
+			ctx := ContextWithUser(req.Context(), tc.userID)
 			req = req.WithContext(ctx)
 
 			rr := httptest.NewRecorder()
@@ -418,9 +417,7 @@ func TestOwnershipUUID(t *testing.T) {
 			dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				rid, ok := ResourceIDFromContext(r.Context())
 				require.True(t, ok)
-				require.Equal(t,
-					pgtype.UUID{Bytes: resourceID, Valid: true}.Bytes,
-					rid.(pgtype.UUID).Bytes)
+				require.Equal(t, resourceID, rid.(uuid.UUID))
 				w.WriteHeader(http.StatusOK)
 			})
 

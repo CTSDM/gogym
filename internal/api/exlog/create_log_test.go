@@ -122,7 +122,7 @@ func TestHandlerCreateLog(t *testing.T) {
 	require.NoError(t, testutil.Cleanup(dbPool, "exercises"))
 	db := database.New(dbPool)
 	user := testutil.CreateUserDBTestHelper(t, db, "usertest", "passwordtest", false)
-	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test session", user.ID.Bytes)
+	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test session", user.ID)
 	exerciseID := testutil.CreateExerciseDBTestHelper(t, db, "pull ups")
 	setID := testutil.CreateSetDBTestHelper(t, db, sessionID, exerciseID)
 

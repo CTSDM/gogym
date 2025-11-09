@@ -8,6 +8,7 @@ package database
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -85,7 +86,7 @@ WHERE id = $1
 RETURNING id, username, hashed_password, is_admin, created_at, country, birthday
 `
 
-func (q *Queries) DeleteUser(ctx context.Context, id pgtype.UUID) (User, error) {
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, deleteUser, id)
 	var i User
 	err := row.Scan(
@@ -105,7 +106,7 @@ SELECT id, username, hashed_password, is_admin, created_at, country, birthday FR
 WHERE id = $1
 `
 
-func (q *Queries) GetUser(ctx context.Context, id pgtype.UUID) (User, error) {
+func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, getUser, id)
 	var i User
 	err := row.Scan(

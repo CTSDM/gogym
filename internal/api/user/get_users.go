@@ -8,7 +8,6 @@ import (
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type getUsersResponse struct {
@@ -55,7 +54,7 @@ func HandlerGetUser(db *database.Queries) http.HandlerFunc {
 		}
 
 		// get the userDB from the database
-		userDB, err := db.GetUser(r.Context(), pgtype.UUID{Bytes: userID, Valid: true})
+		userDB, err := db.GetUser(r.Context(), userID)
 		if err == pgx.ErrNoRows {
 			util.RespondWithError(w, http.StatusNotFound, "user not found", err)
 			return

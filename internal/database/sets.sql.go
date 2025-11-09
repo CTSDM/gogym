@@ -8,6 +8,7 @@ package database
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -20,7 +21,7 @@ RETURNING id, set_order, rest_time, session_id, exercise_id
 type CreateSetParams struct {
 	SetOrder   int32
 	RestTime   pgtype.Int4
-	SessionID  pgtype.UUID
+	SessionID  uuid.UUID
 	ExerciseID int32
 }
 
@@ -66,7 +67,7 @@ WHERE session_id = ANY($1::uuid[])
 ORDER BY session_id, set_order
 `
 
-func (q *Queries) GetSetsBySessionIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Set, error) {
+func (q *Queries) GetSetsBySessionIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]Set, error) {
 	rows, err := q.db.Query(ctx, getSetsBySessionIDs, dollar_1)
 	if err != nil {
 		return nil, err

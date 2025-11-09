@@ -12,8 +12,8 @@ import (
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const (
@@ -91,7 +91,7 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 		}
 
 		// Get total number of sessions
-		sessionsCount, err := db.GetNumberSessionsByUserID(r.Context(), pgtype.UUID{Bytes: userID, Valid: true})
+		sessionsCount, err := db.GetNumberSessionsByUserID(r.Context(), userID)
 		if err == pgx.ErrNoRows {
 			// early return with empty structure
 			util.RespondWithJSON(w, http.StatusOK, res{Sessions: make([]sessionItem, 0), Total: 0})
@@ -103,7 +103,7 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 
 		// fetch sessions with pagination and offset
 		sessions, err := db.GetSessionsPaginated(r.Context(), database.GetSessionsPaginatedParams{
-			UserID: pgtype.UUID{Bytes: userID, Valid: true},
+			UserID: userID,
 			Offset: offset,
 			Limit:  limit,
 		})
@@ -118,7 +118,7 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 		}
 
 		// collect session IDs
-		sessionIDs := make([]pgtype.UUID, len(sessions))
+		sessionIDs := make([]uuid.UUID, len(sessions))
 		for i, s := range sessions {
 			sessionIDs[i] = s.ID
 		}

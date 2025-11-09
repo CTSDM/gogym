@@ -155,7 +155,12 @@ func TestHandlerGetSessions(t *testing.T) {
 			require.NoError(t, testutil.Cleanup(dbPool, "logs"))
 
 			for i := 0; i < tc.setupSessions; i++ {
-				sessionID := testutil.CreateSessionDBTestHelper(t, db, fmt.Sprintf("session-%d", i), user.ID.Bytes)
+				sessionID := testutil.CreateSessionDBTestHelper(
+					t,
+					db,
+					fmt.Sprintf("session-%d", i),
+					user.ID,
+				)
 				exerciseID := testutil.CreateExerciseDBTestHelper(t, db, "squats")
 
 				for j := 0; j < tc.setupSets; j++ {
@@ -185,7 +190,7 @@ func TestHandlerGetSessions(t *testing.T) {
 			require.NoError(t, err, "unexpected error while creating the request")
 
 			if !tc.noUserContext {
-				ctx := middleware.ContextWithUser(req.Context(), user.ID.Bytes)
+				ctx := middleware.ContextWithUser(req.Context(), user.ID)
 				req = req.WithContext(ctx)
 			}
 

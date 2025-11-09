@@ -11,7 +11,6 @@ import (
 	"github.com/CTSDM/gogym/internal/api/testutil"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -82,7 +81,7 @@ func TestHandlerUpdateSession(t *testing.T) {
 	require.NoError(t, testutil.Cleanup(dbPool, "users"))
 	db := database.New(dbPool)
 	user := testutil.CreateUserDBTestHelper(t, db, "testuser", "testpassword", false)
-	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test session", user.ID.Bytes)
+	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test session", user.ID)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -112,7 +111,7 @@ func TestHandlerUpdateSession(t *testing.T) {
 			if tc.userID != [16]byte{} {
 				ctx = middleware.ContextWithUser(ctx, tc.userID)
 			} else {
-				ctx = middleware.ContextWithUser(ctx, user.ID.Bytes)
+				ctx = middleware.ContextWithUser(ctx, user.ID)
 			}
 
 			if tc.hasSessionID {
@@ -122,7 +121,7 @@ func TestHandlerUpdateSession(t *testing.T) {
 				} else {
 					sid = sessionID
 				}
-				ctx = middleware.ContextWithResourceID(ctx, pgtype.UUID{Bytes: sid, Valid: true})
+				ctx = middleware.ContextWithResourceID(ctx, sid)
 			}
 
 			req = req.WithContext(ctx)

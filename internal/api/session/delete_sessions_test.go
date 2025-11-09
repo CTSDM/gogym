@@ -9,7 +9,6 @@ import (
 	"github.com/CTSDM/gogym/internal/api/testutil"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -56,7 +55,7 @@ func TestHandlerDeleteSession(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			sessionID := testutil.CreateSessionDBTestHelper(t, db, "test session", user.ID.Bytes)
+			sessionID := testutil.CreateSessionDBTestHelper(t, db, "test session", user.ID)
 
 			req, err := http.NewRequest("DELETE", "/test", nil)
 			require.NoError(t, err, "unexpected error while creating the request")
@@ -65,7 +64,7 @@ func TestHandlerDeleteSession(t *testing.T) {
 			if tc.userID != [16]byte{} {
 				ctx = middleware.ContextWithUser(ctx, tc.userID)
 			} else {
-				ctx = middleware.ContextWithUser(ctx, user.ID.Bytes)
+				ctx = middleware.ContextWithUser(ctx, user.ID)
 			}
 
 			if tc.hasSessionID {
@@ -75,7 +74,7 @@ func TestHandlerDeleteSession(t *testing.T) {
 				} else {
 					sid = sessionID
 				}
-				ctx = middleware.ContextWithResourceID(ctx, pgtype.UUID{Bytes: sid, Valid: true})
+				ctx = middleware.ContextWithResourceID(ctx, sid)
 			}
 
 			req = req.WithContext(ctx)
@@ -93,7 +92,7 @@ func TestHandlerDeleteSession(t *testing.T) {
 				return
 			}
 
-			_, err = db.GetSession(ctx, pgtype.UUID{Bytes: sessionID, Valid: true})
+			_, err = db.GetSession(ctx, sessionID)
 			require.Error(t, err, "expected session to be deleted")
 		})
 	}

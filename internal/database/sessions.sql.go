@@ -8,6 +8,7 @@ package database
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -24,7 +25,7 @@ type CreateSessionParams struct {
 	Date            pgtype.Date
 	StartTimestamp  pgtype.Timestamp
 	DurationMinutes pgtype.Int2
-	UserID          pgtype.UUID
+	UserID          uuid.UUID
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
@@ -54,8 +55,8 @@ RETURNING id, name, date, start_timestamp, duration_minutes, user_id
 `
 
 type DeleteSessionParams struct {
-	ID     pgtype.UUID
-	UserID pgtype.UUID
+	ID     uuid.UUID
+	UserID uuid.UUID
 }
 
 func (q *Queries) DeleteSession(ctx context.Context, arg DeleteSessionParams) (Session, error) {
@@ -77,7 +78,7 @@ SELECT count(id) FROM sessions
 WHERE user_id = $1
 `
 
-func (q *Queries) GetNumberSessionsByUserID(ctx context.Context, userID pgtype.UUID) (int64, error) {
+func (q *Queries) GetNumberSessionsByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, getNumberSessionsByUserID, userID)
 	var count int64
 	err := row.Scan(&count)
@@ -89,7 +90,7 @@ SELECT id, name, date, start_timestamp, duration_minutes, user_id FROM sessions
 WHERE id = $1
 `
 
-func (q *Queries) GetSession(ctx context.Context, id pgtype.UUID) (Session, error) {
+func (q *Queries) GetSession(ctx context.Context, id uuid.UUID) (Session, error) {
 	row := q.db.QueryRow(ctx, getSession, id)
 	var i Session
 	err := row.Scan(
@@ -108,9 +109,9 @@ SELECT user_id FROM sessions
 WHERE id = $1
 `
 
-func (q *Queries) GetSessionOwnerID(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
+func (q *Queries) GetSessionOwnerID(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getSessionOwnerID, id)
-	var user_id pgtype.UUID
+	var user_id uuid.UUID
 	err := row.Scan(&user_id)
 	return user_id, err
 }
@@ -121,7 +122,7 @@ WHERE user_id = $1
 ORDER BY date DESC
 `
 
-func (q *Queries) GetSessionsByUserID(ctx context.Context, userID pgtype.UUID) ([]Session, error) {
+func (q *Queries) GetSessionsByUserID(ctx context.Context, userID uuid.UUID) ([]Session, error) {
 	rows, err := q.db.Query(ctx, getSessionsByUserID, userID)
 	if err != nil {
 		return nil, err
@@ -157,7 +158,7 @@ LIMIT $3
 `
 
 type GetSessionsPaginatedParams struct {
-	UserID pgtype.UUID
+	UserID uuid.UUID
 	Offset int32
 	Limit  int32
 }
@@ -204,7 +205,7 @@ type UpdateSessionParams struct {
 	Date            pgtype.Date
 	StartTimestamp  pgtype.Timestamp
 	DurationMinutes pgtype.Int2
-	ID              pgtype.UUID
+	ID              uuid.UUID
 }
 
 func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (Session, error) {

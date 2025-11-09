@@ -75,7 +75,7 @@ func TestCreateSet(t *testing.T) {
 	require.NoError(t, testutil.Cleanup(dbPool, "users"))
 	db := database.New(dbPool)
 	user := testutil.CreateUserDBTestHelper(t, db, "usertest", "passwordtest", false)
-	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test name", user.ID.Bytes)
+	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test name", user.ID)
 	exerciseID := testutil.CreateExerciseDBTestHelper(t, db, "pull ups")
 
 	for _, tc := range testCases {

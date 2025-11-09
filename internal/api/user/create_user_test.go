@@ -13,7 +13,6 @@ import (
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -120,7 +119,7 @@ func TestCreateUser(t *testing.T) {
 					require.NoError(t, err, "could not parse the user id into UUID")
 
 					// Obtain the user information from the database
-					user, err := db.GetUser(context.Background(), pgtype.UUID{Bytes: userID, Valid: true})
+					user, err := db.GetUser(context.Background(), userID)
 					assert.NotErrorIs(t, pgx.ErrNoRows, err, "user not found on the database")
 					require.NoError(t, err, "unexpected error when querying the database")
 

@@ -7,3 +7,8 @@ sql:
       go:
         sql_package: "pgx/v5"
         out: "internal/database"
+        overrides:
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"

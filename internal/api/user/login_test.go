@@ -13,7 +13,6 @@ import (
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -143,7 +142,7 @@ func TestHandlerLogin(t *testing.T) {
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				userIDDB := testutil.CreateUserDBTestHelper(t, db, tc.username, tc.password, false).ID
-				userID := userIDDB.Bytes
+				userID := userIDDB
 				userIDString := userIDDB.String()
 				testutil.CreateTokensDBHelperTest(t, db, authConfig, userID)
 				// Prepare request body
@@ -176,10 +175,7 @@ func TestHandlerLogin(t *testing.T) {
 				require.NoError(t, decoder.Decode(&resBody), "could not decode the JSON response")
 
 				// call the database to get the user and refresh token information
-				gotRefreshToken, err := db.GetRefreshTokenByUserID(
-					context.Background(),
-					pgtype.UUID{Bytes: userID, Valid: true},
-				)
+				gotRefreshToken, err := db.GetRefreshTokenByUserID(context.Background(), userID)
 				require.NoError(t, err, "unexpected error while retrieving the refresh token from the database")
 
 				// Checks

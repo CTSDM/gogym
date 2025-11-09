@@ -66,7 +66,7 @@ func HandlerCreateSet(db *database.Queries) http.HandlerFunc {
 		}
 
 		// Check session id against database
-		if _, err := db.GetSession(r.Context(), pgtype.UUID{Bytes: sessionID, Valid: true}); err == pgx.ErrNoRows {
+		if _, err := db.GetSession(r.Context(), sessionID); err == pgx.ErrNoRows {
 			util.RespondWithError(w, http.StatusNotFound, "session ID not found", err)
 			return
 		} else if err != nil {
@@ -76,7 +76,7 @@ func HandlerCreateSet(db *database.Queries) http.HandlerFunc {
 
 		// Record the set into the database
 		dbParams := database.CreateSetParams{
-			SessionID:  pgtype.UUID{Bytes: sessionID, Valid: true},
+			SessionID:  sessionID,
 			SetOrder:   reqParams.SetOrder,
 			ExerciseID: reqParams.ExerciseID,
 			RestTime:   pgtype.Int4{Int32: reqParams.RestTime, Valid: true},

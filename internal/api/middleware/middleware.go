@@ -12,7 +12,6 @@ import (
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type contextKey int
@@ -75,7 +74,7 @@ func Authentication(db *database.Queries, authConfig *auth.Config) func(next htt
 
 			if errRefreshToken == nil {
 				refreshToken, err := db.GetRefreshToken(ctx, refreshTokenString)
-				if err != nil || !refreshToken.UserID.Valid {
+				if err != nil {
 					util.RespondWithError(w, http.StatusUnauthorized, "Invalid JWT and/or refresh token", err)
 					return
 				}
@@ -91,7 +90,7 @@ func Authentication(db *database.Queries, authConfig *auth.Config) func(next htt
 				}
 				w.Header().Set("Auth", "Bearer "+newTokenString)
 
-				ctx = ContextWithUser(ctx, refreshToken.UserID.Bytes)
+				ctx = ContextWithUser(ctx, refreshToken.UserID)
 				r = r.WithContext(ctx)
 				next.ServeHTTP(w, r)
 				return
@@ -108,7 +107,7 @@ func AdminOnly(db *database.Queries) func(next http.HandlerFunc) http.HandlerFun
 			ctx := r.Context()
 			userID, _ := UserFromContext(ctx)
 
-			user, err := db.GetUser(ctx, pgtype.UUID{Bytes: userID, Valid: true})
+			user, err := db.GetUser(ctx, userID)
 			switch err {
 			}
 			if err == pgx.ErrNoRows {
@@ -129,7 +128,7 @@ func AdminOnly(db *database.Queries) func(next http.HandlerFunc) http.HandlerFun
 	}
 }
 
-func Ownership[T any](pathKey string, fn func(ctx context.Context, v T) (pgtype.UUID, error)) func(next http.HandlerFunc) http.HandlerFunc {
+func Ownership[T any](pathKey string, fn func(ctx context.Context, v T) (uuid.UUID, error)) func(next http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -147,13 +146,13 @@ func Ownership[T any](pathKey string, fn func(ctx context.Context, v T) (pgtype.
 					return
 				}
 				id = parsed
-			case pgtype.UUID:
+			case uuid.UUID:
 				parsed, err := uuid.Parse(idStr)
 				if err != nil {
 					util.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("invalid %s format", pathKey), nil)
 					return
 				}
-				id = pgtype.UUID{Bytes: parsed, Valid: true}
+				id = parsed
 			default:
 				err := fmt.Errorf("could not recognize the type for %s", pathKey)
 				util.RespondWithError(w, http.StatusInternalServerError, "could not process the request", err)
@@ -168,7 +167,7 @@ func Ownership[T any](pathKey string, fn func(ctx context.Context, v T) (pgtype.
 				util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 				return
 			}
-			if ownerID.Bytes != userID {
+			if ownerID != userID {
 				util.RespondWithError(w, http.StatusForbidden, "user is not owner", nil)
 				return
 			}

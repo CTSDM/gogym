@@ -106,7 +106,7 @@ func CreateTokensDBHelperTest(t testing.TB, db *database.Queries, authConfig *au
 		database.CreateRefreshTokenParams{
 			Token:     refreshToken,
 			ExpiresAt: pgtype.Timestamp{Time: time.Now().Add(authConfig.RefreshTokenDuration), Valid: true},
-			UserID:    pgtype.UUID{Bytes: userID, Valid: true},
+			UserID:    userID,
 		})
 	require.NoError(t, err)
 
@@ -149,11 +149,11 @@ func CreateSessionDBTestHelper(t testing.TB, db *database.Queries, name string, 
 		database.CreateSessionParams{
 			Name:   name,
 			Date:   pgtype.Date{Time: time.Now(), Valid: true},
-			UserID: pgtype.UUID{Bytes: userID, Valid: true},
+			UserID: userID,
 		})
 	require.NoError(t, err)
 
-	return session.ID.Bytes
+	return session.ID
 }
 
 func CreateSetDBTestHelper(t testing.TB, db *database.Queries, sessionID uuid.UUID, exerciseID int32) int64 {
@@ -161,7 +161,7 @@ func CreateSetDBTestHelper(t testing.TB, db *database.Queries, sessionID uuid.UU
 		database.CreateSetParams{
 			SetOrder:   1,
 			RestTime:   pgtype.Int4{Int32: 90, Valid: true},
-			SessionID:  pgtype.UUID{Bytes: sessionID, Valid: true},
+			SessionID:  sessionID,
 			ExerciseID: exerciseID,
 		})
 	require.NoError(t, err)

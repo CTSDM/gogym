@@ -70,7 +70,7 @@ func TestHandlerUpdateLog(t *testing.T) {
 	require.NoError(t, testutil.Cleanup(dbPool, "exercises"))
 	db := database.New(dbPool)
 	user := testutil.CreateUserDBTestHelper(t, db, "testuser", "testpassword", false)
-	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test session", user.ID.Bytes)
+	sessionID := testutil.CreateSessionDBTestHelper(t, db, "test session", user.ID)
 	exerciseID := testutil.CreateExerciseDBTestHelper(t, db, "pull ups")
 	setID := testutil.CreateSetDBTestHelper(t, db, sessionID, exerciseID)
 	// a log is created with negative values
@@ -104,7 +104,7 @@ func TestHandlerUpdateLog(t *testing.T) {
 			if tc.userID != [16]byte{} {
 				ctx = middleware.ContextWithUser(ctx, tc.userID)
 			} else {
-				ctx = middleware.ContextWithUser(ctx, user.ID.Bytes)
+				ctx = middleware.ContextWithUser(ctx, user.ID)
 			}
 			// set up the log id in the context using ContextWithResource
 			if tc.hasLogID {
