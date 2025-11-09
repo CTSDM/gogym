@@ -46,7 +46,7 @@ func retrieveParseUUIDFromContext(ctx context.Context) (uuid.UUID, error) {
 	// pull the resource from the context
 	resourceID, ok := middleware.ResourceIDFromContext(ctx)
 	if !ok {
-		return uuid.UUID{}, errors.New("could not find user id in the context")
+		return uuid.UUID{}, errors.New("could not find session id in the context")
 	}
 	// coerce the resource into uuid
 	sessionID, ok := resourceID.(uuid.UUID)
