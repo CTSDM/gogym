@@ -25,3 +25,8 @@ WHERE logs.id = $1;
 SELECT * FROM logs
 WHERE set_id = ANY($1::bigint[])
 ORDER BY set_id, logs_order;
+
+-- name: DeleteLog :one
+DELETE FROM logs
+WHERE id = $1
+RETURNING *;

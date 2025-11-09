@@ -48,6 +48,28 @@ func (q *Queries) CreateLog(ctx context.Context, arg CreateLogParams) (Log, erro
 	return i, err
 }
 
+const deleteLog = `-- name: DeleteLog :one
+DELETE FROM logs
+WHERE id = $1
+RETURNING id, created_at, last_modified_at, weight, reps, logs_order, exercise_id, set_id
+`
+
+func (q *Queries) DeleteLog(ctx context.Context, id int64) (Log, error) {
+	row := q.db.QueryRow(ctx, deleteLog, id)
+	var i Log
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.LastModifiedAt,
+		&i.Weight,
+		&i.Reps,
+		&i.LogsOrder,
+		&i.ExerciseID,
+		&i.SetID,
+	)
+	return i, err
+}
+
 const getLog = `-- name: GetLog :one
 SELECT id, created_at, last_modified_at, weight, reps, logs_order, exercise_id, set_id FROM logs
 WHERE id = $1

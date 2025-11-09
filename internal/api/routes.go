@@ -55,6 +55,10 @@ func addRoutes(mux *http.ServeMux, db *database.Queries, authConfig *auth.Config
 		exlog.HandlerUpdateLog(db),
 		authentication,
 		middleware.Ownership("id", db.GetLogOwnerID)))
+	mux.HandleFunc("DELETE /api/v1/logs/{id}", middleware.Chain(
+		exlog.HandlerDeleteLog(db),
+		authentication,
+		middleware.Ownership("id", db.GetLogOwnerID)))
 
 	// exercises endpoints
 	mux.HandleFunc("GET /api/v1/exercises/{id}", authentication(exercise.HandlerGetExercise(db)))
