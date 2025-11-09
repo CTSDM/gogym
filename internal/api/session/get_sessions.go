@@ -12,6 +12,7 @@ import (
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -32,6 +33,7 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 	}
 	type res struct {
 		Sessions []sessionItem `json:"sessions"`
+		Total    int           `json:"total"` // total number of sessions for a given user
 	}
 
 	validateQueryParams := func(r *http.Request) (int32, int32, map[string]string) {
@@ -88,7 +90,18 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		// fetch sessions
+		// Get total number of sessions
+		sessionsCount, err := db.GetNumberSessionsByUserID(r.Context(), pgtype.UUID{Bytes: userID, Valid: true})
+		if err == pgx.ErrNoRows {
+			// early return with empty structure
+			util.RespondWithJSON(w, http.StatusOK, res{Sessions: make([]sessionItem, 0), Total: 0})
+			return
+		} else if err != nil {
+			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			return
+		}
+
+		// fetch sessions with pagination and offset
 		sessions, err := db.GetSessionsPaginated(r.Context(), database.GetSessionsPaginatedParams{
 			UserID: pgtype.UUID{Bytes: userID, Valid: true},
 			Offset: offset,
@@ -100,7 +113,7 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 		}
 
 		if len(sessions) == 0 {
-			util.RespondWithJSON(w, http.StatusOK, res{Sessions: []sessionItem{}})
+			util.RespondWithJSON(w, http.StatusOK, res{Sessions: []sessionItem{}, Total: int(sessionsCount)})
 			return
 		}
 
@@ -182,6 +195,6 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 			})
 		}
 
-		util.RespondWithJSON(w, http.StatusOK, res{Sessions: result})
+		util.RespondWithJSON(w, http.StatusOK, res{Sessions: result, Total: int(sessionsCount)})
 	}
 }

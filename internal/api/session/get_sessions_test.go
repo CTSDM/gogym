@@ -218,12 +218,14 @@ func TestHandlerGetSessions(t *testing.T) {
 			}
 			type res struct {
 				Sessions []sessionItem `json:"sessions"`
+				Total    int           `json:"total"`
 			}
 
 			var resParams res
 			decoder := json.NewDecoder(rr.Body)
 			require.NoError(t, decoder.Decode(&resParams))
 			assert.Equal(t, tc.expectedCount, len(resParams.Sessions))
+			assert.Equal(t, tc.setupSessions, resParams.Total)
 
 			if tc.setupSessions > 0 {
 				for _, session := range resParams.Sessions {

@@ -5,6 +5,10 @@ VALUES (
 )
 RETURNING *;
 
+-- name: GetNumberSessionsByUserID :one
+SELECT count(id) FROM sessions
+WHERE user_id = $1;
+
 -- name: GetSessionsByUserID :many
 SELECT * FROM sessions
 WHERE user_id = $1
