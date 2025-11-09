@@ -6,3 +6,8 @@ RETURNING *;
 -- name: GetSet :one
 SELECT * FROM sets
 WHERE id = $1;
+
+-- name: GetSetsBySessionIDs :many
+SELECT * FROM sets
+WHERE session_id = ANY($1::uuid[])
+ORDER BY session_id, set_order;

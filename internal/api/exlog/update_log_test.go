@@ -82,7 +82,7 @@ func TestHandlerUpdateLog(t *testing.T) {
 			if tc.hasEmptyJSON {
 				reader = bytes.NewReader([]byte("{}"))
 			} else if tc.hasJSON {
-				reqParams := logReq{
+				reqParams := LogReq{
 					ExerciseID: exerciseID,
 					Weight:     tc.weight,
 					Reps:       tc.reps,
@@ -128,7 +128,7 @@ func TestHandlerUpdateLog(t *testing.T) {
 				}
 				return
 			} else {
-				var resParams logRes
+				var resParams LogRes
 				decoder := json.NewDecoder(rr.Body)
 				require.NoError(t, decoder.Decode(&resParams))
 				assert.Equal(t, setID, resParams.SetID)

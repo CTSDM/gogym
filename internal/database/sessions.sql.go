@@ -111,6 +111,47 @@ func (q *Queries) GetSessionsByUserID(ctx context.Context, userID pgtype.UUID) (
 	return items, nil
 }
 
+const getSessionsPaginated = `-- name: GetSessionsPaginated :many
+SELECT id, name, date, start_timestamp, duration_minutes, user_id FROM sessions
+WHERE user_id = $1
+ORDER BY date DESC
+OFFSET $2
+LIMIT $3
+`
+
+type GetSessionsPaginatedParams struct {
+	UserID pgtype.UUID
+	Offset int32
+	Limit  int32
+}
+
+func (q *Queries) GetSessionsPaginated(ctx context.Context, arg GetSessionsPaginatedParams) ([]Session, error) {
+	rows, err := q.db.Query(ctx, getSessionsPaginated, arg.UserID, arg.Offset, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Session
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Date,
+			&i.StartTimestamp,
+			&i.DurationMinutes,
+			&i.UserID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateSession = `-- name: UpdateSession :one
 UPDATE sessions
 SET name = $1,

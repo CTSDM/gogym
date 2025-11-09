@@ -15,8 +15,13 @@ RETURNING *;
 
 -- name: GetLogOwnerID :one
 SELECT sessions.user_id FROM logs
-LEFT JOIN sets
+JOIN sets
 ON logs.set_id = sets.id
-LEFT JOIN sessions
+JOIN sessions
 ON sets.session_id = sessions.id
 WHERE logs.id = $1;
+
+-- name: GetLogsBySetIDs :many
+SELECT * FROM logs
+WHERE set_id = ANY($1::bigint[])
+ORDER BY set_id, logs_order;
