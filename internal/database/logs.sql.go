@@ -70,9 +70,9 @@ func (q *Queries) GetLog(ctx context.Context, id int64) (Log, error) {
 
 const getLogOwnerID = `-- name: GetLogOwnerID :one
 SELECT sessions.user_id FROM logs
-LEFT JOIN sets
+JOIN sets
 ON logs.set_id = sets.id
-LEFT JOIN sessions
+JOIN sessions
 ON sets.session_id = sessions.id
 WHERE logs.id = $1
 `
@@ -82,6 +82,41 @@ func (q *Queries) GetLogOwnerID(ctx context.Context, id int64) (pgtype.UUID, err
 	var user_id pgtype.UUID
 	err := row.Scan(&user_id)
 	return user_id, err
+}
+
+const getLogsBySetIDs = `-- name: GetLogsBySetIDs :many
+SELECT id, created_at, last_modified_at, weight, reps, logs_order, exercise_id, set_id FROM logs
+WHERE set_id = ANY($1::bigint[])
+ORDER BY set_id, logs_order
+`
+
+func (q *Queries) GetLogsBySetIDs(ctx context.Context, dollar_1 []int64) ([]Log, error) {
+	rows, err := q.db.Query(ctx, getLogsBySetIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Log
+	for rows.Next() {
+		var i Log
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.LastModifiedAt,
+			&i.Weight,
+			&i.Reps,
+			&i.LogsOrder,
+			&i.ExerciseID,
+			&i.SetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateLog = `-- name: UpdateLog :one

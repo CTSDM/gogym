@@ -16,19 +16,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type createSetReq struct {
+type SetReq struct {
 	ExerciseID int32 `json:"exercise_id"`
 	SetOrder   int32 `json:"set_order"`
 	RestTime   int32 `json:"rest_time"`
 }
 
-type createSetRes struct {
+type SetRes struct {
 	ID        int64  `json:"id"`
 	SessionID string `json:"session_id"`
-	createSetReq
+	SetReq
 }
 
-func (r *createSetReq) Valid(ctx context.Context) map[string]string {
+func (r *SetReq) Valid(ctx context.Context) map[string]string {
 	problems := make(map[string]string)
 
 	// set order validation
@@ -56,7 +56,7 @@ func HandlerCreateSet(db *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		reqParams, problems, err := validation.DecodeValid[*createSetReq](r)
+		reqParams, problems, err := validation.DecodeValid[*SetReq](r)
 		if len(problems) > 0 {
 			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
@@ -94,10 +94,10 @@ func HandlerCreateSet(db *database.Queries) http.HandlerFunc {
 		}
 
 		util.RespondWithJSON(w, http.StatusCreated,
-			createSetRes{
+			SetRes{
 				ID:        set.ID,
 				SessionID: set.SessionID.String(),
-				createSetReq: createSetReq{
+				SetReq: SetReq{
 					SetOrder: set.SetOrder,
 					RestTime: set.RestTime.Int32,
 				},

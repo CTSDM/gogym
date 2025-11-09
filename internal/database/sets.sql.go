@@ -59,3 +59,35 @@ func (q *Queries) GetSet(ctx context.Context, id int64) (Set, error) {
 	)
 	return i, err
 }
+
+const getSetsBySessionIDs = `-- name: GetSetsBySessionIDs :many
+SELECT id, set_order, rest_time, session_id, exercise_id FROM sets
+WHERE session_id = ANY($1::uuid[])
+ORDER BY session_id, set_order
+`
+
+func (q *Queries) GetSetsBySessionIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]Set, error) {
+	rows, err := q.db.Query(ctx, getSetsBySessionIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Set
+	for rows.Next() {
+		var i Set
+		if err := rows.Scan(
+			&i.ID,
+			&i.SetOrder,
+			&i.RestTime,
+			&i.SessionID,
+			&i.ExerciseID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

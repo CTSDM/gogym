@@ -86,7 +86,7 @@ func TestCreateSet(t *testing.T) {
 			if tc.hasEmptyJSON {
 				reader = bytes.NewReader([]byte("{}"))
 			} else {
-				reqParams := createSetReq{
+				reqParams := SetReq{
 					RestTime:   tc.restTime,
 					SetOrder:   tc.order,
 					ExerciseID: exerciseID,
@@ -122,7 +122,7 @@ func TestCreateSet(t *testing.T) {
 				return
 			} else {
 				// check the body to make sure
-				var resParams createSetRes
+				var resParams SetRes
 				decoder := json.NewDecoder(rr.Body)
 				require.NoError(t, decoder.Decode(&resParams))
 				// assert values

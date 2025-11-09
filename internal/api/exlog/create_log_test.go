@@ -132,7 +132,7 @@ func TestHandlerCreateLog(t *testing.T) {
 			if tc.hasEmptyJSON {
 				reader = bytes.NewReader([]byte("{}"))
 			} else if tc.hasJSON {
-				reqParams := logReq{
+				reqParams := LogReq{
 					ExerciseID: exerciseID,
 					Weight:     tc.weight,
 					Reps:       tc.reps,
@@ -170,7 +170,7 @@ func TestHandlerCreateLog(t *testing.T) {
 				}
 				return
 			} else {
-				var resParams logRes
+				var resParams LogRes
 				decoder := json.NewDecoder(rr.Body)
 				require.NoError(t, decoder.Decode(&resParams))
 				assert.Equal(t, setID, resParams.SetID)
@@ -192,13 +192,13 @@ func TestHandlerCreateLog(t *testing.T) {
 func TestValidateCreateLog(t *testing.T) {
 	testCases := []struct {
 		name      string
-		req       logReq
+		req       LogReq
 		shouldErr bool
 		errKeys   map[string]string
 	}{
 		{
 			name: "happy path",
-			req: logReq{
+			req: LogReq{
 				Weight:     100.5,
 				Reps:       10,
 				Order:      1,
@@ -208,7 +208,7 @@ func TestValidateCreateLog(t *testing.T) {
 		},
 		{
 			name: "negative weight should be set to zero",
-			req: logReq{
+			req: LogReq{
 				Weight:     -50,
 				Reps:       10,
 				Order:      1,
@@ -218,7 +218,7 @@ func TestValidateCreateLog(t *testing.T) {
 		},
 		{
 			name: "negative order",
-			req: logReq{
+			req: LogReq{
 				Weight:     100,
 				Reps:       10,
 				Order:      -1,
@@ -231,7 +231,7 @@ func TestValidateCreateLog(t *testing.T) {
 		},
 		{
 			name: "zero reps",
-			req: logReq{
+			req: LogReq{
 				Weight:     100,
 				Reps:       0,
 				Order:      1,
@@ -244,7 +244,7 @@ func TestValidateCreateLog(t *testing.T) {
 		},
 		{
 			name: "negative reps",
-			req: logReq{
+			req: LogReq{
 				Weight:     100,
 				Reps:       -5,
 				Order:      1,

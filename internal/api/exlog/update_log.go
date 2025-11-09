@@ -26,7 +26,7 @@ func HandlerUpdateLog(db *database.Queries) http.HandlerFunc {
 			return
 		}
 		// decode and validate
-		reqParams, problems, err := validation.DecodeValid[*logReq](r)
+		reqParams, problems, err := validation.DecodeValid[*LogReq](r)
 		if len(problems) > 0 {
 			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
@@ -51,10 +51,10 @@ func HandlerUpdateLog(db *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		util.RespondWithJSON(w, http.StatusOK, logRes{
+		util.RespondWithJSON(w, http.StatusOK, LogRes{
 			ID:    updatedLog.ID,
 			SetID: updatedLog.SetID,
-			logReq: logReq{
+			LogReq: LogReq{
 				ExerciseID: updatedLog.ExerciseID,
 				Weight:     updatedLog.Weight.Float64,
 				Reps:       updatedLog.Reps,
