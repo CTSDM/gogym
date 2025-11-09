@@ -47,6 +47,18 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 	return i, err
 }
 
+const getNumberSessionsByUserID = `-- name: GetNumberSessionsByUserID :one
+SELECT count(id) FROM sessions
+WHERE user_id = $1
+`
+
+func (q *Queries) GetNumberSessionsByUserID(ctx context.Context, userID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getNumberSessionsByUserID, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getSession = `-- name: GetSession :one
 SELECT id, name, date, start_timestamp, duration_minutes, user_id FROM sessions
 WHERE id = $1
