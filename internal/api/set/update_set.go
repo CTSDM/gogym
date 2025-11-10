@@ -53,7 +53,7 @@ func HandlerUpdateSet(pool *pgxpool.Pool, db *database.Queries) http.HandlerFunc
 		}
 		if reqParams.ExerciseID != setDB.ExerciseID {
 			// update the logs information
-			if err := txQueries.UpdateLogsExerciseIDBySessionID(r.Context(), database.UpdateLogsExerciseIDBySessionIDParams{
+			if err := txQueries.UpdateLogsExerciseIDBySetID(r.Context(), database.UpdateLogsExerciseIDBySetIDParams{
 				ExerciseID: reqParams.ExerciseID,
 				SetID:      setID,
 			}); err != nil {

@@ -212,18 +212,18 @@ func (q *Queries) UpdateLog(ctx context.Context, arg UpdateLogParams) (Log, erro
 	return i, err
 }
 
-const updateLogsExerciseIDBySessionID = `-- name: UpdateLogsExerciseIDBySessionID :exec
+const updateLogsExerciseIDBySetID = `-- name: UpdateLogsExerciseIDBySetID :exec
 UPDATE logs
 SET exercise_id = $1
 WHERE set_id = $2
 `
 
-type UpdateLogsExerciseIDBySessionIDParams struct {
+type UpdateLogsExerciseIDBySetIDParams struct {
 	ExerciseID int32
 	SetID      int64
 }
 
-func (q *Queries) UpdateLogsExerciseIDBySessionID(ctx context.Context, arg UpdateLogsExerciseIDBySessionIDParams) error {
-	_, err := q.db.Exec(ctx, updateLogsExerciseIDBySessionID, arg.ExerciseID, arg.SetID)
+func (q *Queries) UpdateLogsExerciseIDBySetID(ctx context.Context, arg UpdateLogsExerciseIDBySetIDParams) error {
+	_, err := q.db.Exec(ctx, updateLogsExerciseIDBySetID, arg.ExerciseID, arg.SetID)
 	return err
 }
