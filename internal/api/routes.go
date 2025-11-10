@@ -11,15 +11,16 @@ import (
 	"github.com/CTSDM/gogym/internal/api/user"
 	"github.com/CTSDM/gogym/internal/auth"
 	"github.com/CTSDM/gogym/internal/database"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewServer(db *database.Queries, authConfig *auth.Config) http.Handler {
+func NewServer(pool *pgxpool.Pool, db *database.Queries, authConfig *auth.Config) http.Handler {
 	serveMux := http.NewServeMux()
-	addRoutes(serveMux, db, authConfig)
+	addRoutes(pool, serveMux, db, authConfig)
 	return serveMux
 }
 
-func addRoutes(mux *http.ServeMux, db *database.Queries, authConfig *auth.Config) {
+func addRoutes(pool *pgxpool.Pool, mux *http.ServeMux, db *database.Queries, authConfig *auth.Config) {
 	// middleware declaration
 	authentication := middleware.Authentication(db, authConfig)
 	admin := middleware.AdminOnly(db)
@@ -52,6 +53,10 @@ func addRoutes(mux *http.ServeMux, db *database.Queries, authConfig *auth.Config
 		authentication,
 		middleware.Ownership("id", db.GetSetOwnerID)))
 	mux.HandleFunc("GET /api/v1/sets/{id}", authentication(set.HandlerGetSet(db)))
+	mux.HandleFunc("PUT /api/v1/sets/{id}", middleware.Chain(
+		set.HandlerUpdateSet(pool, db),
+		authentication,
+		middleware.Ownership("id", db.GetSetOwnerID)))
 
 	// logs endpoints
 	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets/{setID}/logs",

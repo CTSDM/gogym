@@ -22,7 +22,7 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatalf("could not load env variables: %s", err.Error())
 	}
-	dbQueries, err := getDB()
+	dbPool, dbQueries, err := getDB()
 	if err != nil {
 		log.Fatalf("could not connect to the database: %s", err.Error())
 	}
@@ -33,7 +33,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not set up the auth config: %s", err.Error())
 	}
-	server := api.NewServer(dbQueries, authConfig)
+	server := api.NewServer(dbPool, dbQueries, authConfig)
 
 	httpServer := &http.Server{
 		Addr:        ":" + "8080",
@@ -119,16 +119,16 @@ func initialSetup(db *database.Queries) error {
 
 }
 
-func getDB() (*database.Queries, error) {
+func getDB() (*pgxpool.Pool, *database.Queries, error) {
 	dbConnURL, err := getDBConnURL()
 	if err != nil {
-		return nil, fmt.Errorf("failed to obtain the database url: %w", err)
+		return nil, nil, fmt.Errorf("failed to obtain the database url: %w", err)
 	}
 	dbPool, err := startDB(dbConnURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to the database: %w", err)
+		return nil, nil, fmt.Errorf("failed to connect to the database: %w", err)
 	}
-	return database.New(dbPool), nil
+	return dbPool, database.New(dbPool), nil
 }
 
 func startDB(connPath string) (*pgxpool.Pool, error) {

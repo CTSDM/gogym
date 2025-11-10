@@ -125,3 +125,38 @@ func (q *Queries) GetSetsBySessionIDs(ctx context.Context, dollar_1 []uuid.UUID)
 	}
 	return items, nil
 }
+
+const updateSet = `-- name: UpdateSet :one
+UPDATE sets
+SET
+    set_order = $1,
+    rest_time = $2,
+    exercise_id = $3
+WHERE id = $4
+RETURNING id, set_order, rest_time, session_id, exercise_id
+`
+
+type UpdateSetParams struct {
+	SetOrder   int32
+	RestTime   pgtype.Int4
+	ExerciseID int32
+	ID         int64
+}
+
+func (q *Queries) UpdateSet(ctx context.Context, arg UpdateSetParams) (Set, error) {
+	row := q.db.QueryRow(ctx, updateSet,
+		arg.SetOrder,
+		arg.RestTime,
+		arg.ExerciseID,
+		arg.ID,
+	)
+	var i Set
+	err := row.Scan(
+		&i.ID,
+		&i.SetOrder,
+		&i.RestTime,
+		&i.SessionID,
+		&i.ExerciseID,
+	)
+	return i, err
+}

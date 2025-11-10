@@ -1,7 +1,6 @@
 package session
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/CTSDM/gogym/internal/api/util"
@@ -16,7 +15,6 @@ func HandlerUpdateSession(db *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sessionID, err := retrieveParseUUIDFromContext(r.Context())
 		if err != nil {
-			err := errors.New("expected session id to be in the context")
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
