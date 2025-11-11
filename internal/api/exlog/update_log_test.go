@@ -65,6 +65,7 @@ func TestHandlerUpdateLog(t *testing.T) {
 		},
 	}
 
+	require.NoError(t, testutil.Cleanup(dbPool, "users"))
 	require.NoError(t, testutil.Cleanup(dbPool, "sessions"))
 	require.NoError(t, testutil.Cleanup(dbPool, "sets"))
 	require.NoError(t, testutil.Cleanup(dbPool, "exercises"))

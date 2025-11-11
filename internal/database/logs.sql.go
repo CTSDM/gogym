@@ -48,6 +48,28 @@ func (q *Queries) CreateLog(ctx context.Context, arg CreateLogParams) (Log, erro
 	return i, err
 }
 
+const deleteLog = `-- name: DeleteLog :one
+DELETE FROM logs
+WHERE id = $1
+RETURNING id, created_at, last_modified_at, weight, reps, logs_order, exercise_id, set_id
+`
+
+func (q *Queries) DeleteLog(ctx context.Context, id int64) (Log, error) {
+	row := q.db.QueryRow(ctx, deleteLog, id)
+	var i Log
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.LastModifiedAt,
+		&i.Weight,
+		&i.Reps,
+		&i.LogsOrder,
+		&i.ExerciseID,
+		&i.SetID,
+	)
+	return i, err
+}
+
 const getLog = `-- name: GetLog :one
 SELECT id, created_at, last_modified_at, weight, reps, logs_order, exercise_id, set_id FROM logs
 WHERE id = $1
@@ -85,6 +107,41 @@ func (q *Queries) GetLogOwnerID(ctx context.Context, id int64) (uuid.UUID, error
 	return user_id, err
 }
 
+const getLogsBySetID = `-- name: GetLogsBySetID :many
+SELECT id, created_at, last_modified_at, weight, reps, logs_order, exercise_id, set_id FROM logs
+WHERE set_id = $1
+ORDER BY logs_order ASC
+`
+
+func (q *Queries) GetLogsBySetID(ctx context.Context, setID int64) ([]Log, error) {
+	rows, err := q.db.Query(ctx, getLogsBySetID, setID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Log
+	for rows.Next() {
+		var i Log
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.LastModifiedAt,
+			&i.Weight,
+			&i.Reps,
+			&i.LogsOrder,
+			&i.ExerciseID,
+			&i.SetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLogsBySetIDs = `-- name: GetLogsBySetIDs :many
 SELECT id, created_at, last_modified_at, weight, reps, logs_order, exercise_id, set_id FROM logs
 WHERE set_id = ANY($1::bigint[])
@@ -101,6 +158,65 @@ func (q *Queries) GetLogsBySetIDs(ctx context.Context, dollar_1 []int64) ([]Log,
 	for rows.Next() {
 		var i Log
 		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.LastModifiedAt,
+			&i.Weight,
+			&i.Reps,
+			&i.LogsOrder,
+			&i.ExerciseID,
+			&i.SetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLogsByUserID = `-- name: GetLogsByUserID :many
+SELECT sessions.date, logs.id, logs.created_at, logs.last_modified_at, logs.weight, logs.reps, logs.logs_order, logs.exercise_id, logs.set_id
+FROM logs
+LEFT JOIN sets ON sets.id = logs.set_id
+LEFT JOIN sessions ON sessions.id = sets.session_id
+WHERE sessions.user_id = $1
+ORDER BY sessions.date DESC
+OFFSET $2
+LIMIT $3
+`
+
+type GetLogsByUserIDParams struct {
+	UserID uuid.UUID
+	Offset int32
+	Limit  int32
+}
+
+type GetLogsByUserIDRow struct {
+	Date           pgtype.Date
+	ID             int64
+	CreatedAt      pgtype.Timestamp
+	LastModifiedAt pgtype.Timestamp
+	Weight         pgtype.Float8
+	Reps           int32
+	LogsOrder      int32
+	ExerciseID     int32
+	SetID          int64
+}
+
+func (q *Queries) GetLogsByUserID(ctx context.Context, arg GetLogsByUserIDParams) ([]GetLogsByUserIDRow, error) {
+	rows, err := q.db.Query(ctx, getLogsByUserID, arg.UserID, arg.Offset, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetLogsByUserIDRow
+	for rows.Next() {
+		var i GetLogsByUserIDRow
+		if err := rows.Scan(
+			&i.Date,
 			&i.ID,
 			&i.CreatedAt,
 			&i.LastModifiedAt,
@@ -153,4 +269,20 @@ func (q *Queries) UpdateLog(ctx context.Context, arg UpdateLogParams) (Log, erro
 		&i.SetID,
 	)
 	return i, err
+}
+
+const updateLogsExerciseIDBySetID = `-- name: UpdateLogsExerciseIDBySetID :exec
+UPDATE logs
+SET exercise_id = $1
+WHERE set_id = $2
+`
+
+type UpdateLogsExerciseIDBySetIDParams struct {
+	ExerciseID int32
+	SetID      int64
+}
+
+func (q *Queries) UpdateLogsExerciseIDBySetID(ctx context.Context, arg UpdateLogsExerciseIDBySetIDParams) error {
+	_, err := q.db.Exec(ctx, updateLogsExerciseIDBySetID, arg.ExerciseID, arg.SetID)
+	return err
 }

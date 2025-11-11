@@ -1,7 +1,6 @@
 package session
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/CTSDM/gogym/internal/api/util"
@@ -16,7 +15,6 @@ func HandlerUpdateSession(db *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sessionID, err := retrieveParseUUIDFromContext(r.Context())
 		if err != nil {
-			err := errors.New("expected session id to be in the context")
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
@@ -33,10 +31,11 @@ func HandlerUpdateSession(db *database.Queries) http.HandlerFunc {
 
 		// Update the entry
 		dbParams := database.UpdateSessionParams{
-			ID:             sessionID,
-			Name:           reqParams.Name,
-			Date:           pgtype.Date{Time: reqParams.date, Valid: true},
-			StartTimestamp: pgtype.Timestamp{Time: reqParams.startTimestamp, Valid: true},
+			ID:              sessionID,
+			Name:            reqParams.Name,
+			Date:            pgtype.Date{Time: reqParams.date, Valid: true},
+			StartTimestamp:  pgtype.Timestamp{Time: reqParams.startTimestamp, Valid: true},
+			DurationMinutes: pgtype.Int2{Int16: reqParams.durationMinutes, Valid: true},
 		}
 		updatedSession, err := db.UpdateSession(r.Context(), dbParams)
 		if err == pgx.ErrNoRows {
