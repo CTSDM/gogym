@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -132,7 +133,12 @@ func Ownership[T any](pathKey string, fn func(ctx context.Context, v T) (uuid.UU
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
-			userID, _ := UserFromContext(ctx)
+			userID, ok := UserFromContext(ctx)
+			if !ok {
+				err := errors.New("user id not found in the context")
+				util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+				return
+			}
 
 			idStr := r.PathValue(pathKey)
 			var id any
@@ -159,7 +165,7 @@ func Ownership[T any](pathKey string, fn func(ctx context.Context, v T) (uuid.UU
 				return
 			}
 
-			ownerID, err := fn(r.Context(), id.(T))
+			ownerID, err := fn(ctx, id.(T))
 			if err == pgx.ErrNoRows {
 				util.RespondWithError(w, http.StatusNotFound, "not found", err)
 				return

@@ -31,32 +31,36 @@ func addRoutes(pool *pgxpool.Pool, mux *http.ServeMux, db *database.Queries, aut
 	// users endpoints
 	mux.HandleFunc("POST /api/v1/users", user.HandlerCreateUser(db))
 	mux.HandleFunc("GET /api/v1/users/{id}",
-		middleware.Chain(user.HandlerGetUser(db), authentication, admin))
-	mux.HandleFunc("GET /api/v1/users", middleware.Chain(user.HandlerGetUsers(db), authentication, admin))
+		middleware.Chain(user.HandlerGetUser(db), admin, authentication))
+	mux.HandleFunc("GET /api/v1/users", middleware.Chain(user.HandlerGetUsers(db), admin, authentication))
 
 	// sessions endpoints
 	mux.HandleFunc("POST /api/v1/sessions", authentication(session.HandlerCreateSession(db)))
 	mux.HandleFunc("GET /api/v1/sessions", authentication(session.HandlerGetSessions(db)))
+	mux.HandleFunc("GET /api/v1/sessions/{id}", middleware.Chain(
+		session.HandlerGetSession(db),
+		middleware.Ownership("id", db.GetSessionOwnerID),
+		authentication))
 	mux.HandleFunc("PUT /api/v1/sessions/{id}", middleware.Chain(
 		session.HandlerUpdateSession(db),
-		authentication,
-		middleware.Ownership("id", db.GetSessionOwnerID)))
+		middleware.Ownership("id", db.GetSessionOwnerID),
+		authentication))
 	mux.HandleFunc("DELETE /api/v1/sessions/{id}", middleware.Chain(
 		session.HandlerDeleteSession(db),
-		authentication,
-		middleware.Ownership("id", db.GetSessionOwnerID)))
+		middleware.Ownership("id", db.GetSessionOwnerID),
+		authentication))
 
 	// sets endpoints
 	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets", authentication(set.HandlerCreateSet(db)))
 	mux.HandleFunc("DELETE /api/v1/sets/{id}", middleware.Chain(
 		set.HandlerDeleteSet(db),
-		authentication,
-		middleware.Ownership("id", db.GetSetOwnerID)))
+		middleware.Ownership("id", db.GetSetOwnerID),
+		authentication))
 	mux.HandleFunc("GET /api/v1/sets/{id}", authentication(set.HandlerGetSet(db)))
 	mux.HandleFunc("PUT /api/v1/sets/{id}", middleware.Chain(
 		set.HandlerUpdateSet(pool, db),
-		authentication,
-		middleware.Ownership("id", db.GetSetOwnerID)))
+		middleware.Ownership("id", db.GetSetOwnerID),
+		authentication))
 
 	// logs endpoints
 	mux.HandleFunc("GET /api/v1/logs/", authentication(exlog.HandlerGetLogs(db)))
@@ -64,12 +68,12 @@ func addRoutes(pool *pgxpool.Pool, mux *http.ServeMux, db *database.Queries, aut
 		authentication(exlog.HandlerCreateLog(db)))
 	mux.HandleFunc("PUT /api/v1/logs/{id}", middleware.Chain(
 		exlog.HandlerUpdateLog(db),
-		authentication,
-		middleware.Ownership("id", db.GetLogOwnerID)))
+		middleware.Ownership("id", db.GetLogOwnerID),
+		authentication))
 	mux.HandleFunc("DELETE /api/v1/logs/{id}", middleware.Chain(
 		exlog.HandlerDeleteLog(db),
-		authentication,
-		middleware.Ownership("id", db.GetLogOwnerID)))
+		middleware.Ownership("id", db.GetLogOwnerID),
+		authentication))
 
 	// exercises endpoints
 	mux.HandleFunc("GET /api/v1/exercises/{id}", authentication(exercise.HandlerGetExercise(db)))
