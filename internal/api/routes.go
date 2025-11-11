@@ -59,6 +59,7 @@ func addRoutes(pool *pgxpool.Pool, mux *http.ServeMux, db *database.Queries, aut
 		middleware.Ownership("id", db.GetSetOwnerID)))
 
 	// logs endpoints
+	mux.HandleFunc("GET /api/v1/logs/", authentication(exlog.HandlerGetLogs(db)))
 	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets/{setID}/logs",
 		authentication(exlog.HandlerCreateLog(db)))
 	mux.HandleFunc("PUT /api/v1/logs/{id}", middleware.Chain(

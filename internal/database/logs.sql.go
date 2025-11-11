@@ -177,6 +177,65 @@ func (q *Queries) GetLogsBySetIDs(ctx context.Context, dollar_1 []int64) ([]Log,
 	return items, nil
 }
 
+const getLogsByUserID = `-- name: GetLogsByUserID :many
+SELECT sessions.date, logs.id, logs.created_at, logs.last_modified_at, logs.weight, logs.reps, logs.logs_order, logs.exercise_id, logs.set_id
+FROM logs
+LEFT JOIN sets ON sets.id = logs.set_id
+LEFT JOIN sessions ON sessions.id = sets.session_id
+WHERE sessions.user_id = $1
+ORDER BY sessions.date DESC
+OFFSET $2
+LIMIT $3
+`
+
+type GetLogsByUserIDParams struct {
+	UserID uuid.UUID
+	Offset int32
+	Limit  int32
+}
+
+type GetLogsByUserIDRow struct {
+	Date           pgtype.Date
+	ID             int64
+	CreatedAt      pgtype.Timestamp
+	LastModifiedAt pgtype.Timestamp
+	Weight         pgtype.Float8
+	Reps           int32
+	LogsOrder      int32
+	ExerciseID     int32
+	SetID          int64
+}
+
+func (q *Queries) GetLogsByUserID(ctx context.Context, arg GetLogsByUserIDParams) ([]GetLogsByUserIDRow, error) {
+	rows, err := q.db.Query(ctx, getLogsByUserID, arg.UserID, arg.Offset, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetLogsByUserIDRow
+	for rows.Next() {
+		var i GetLogsByUserIDRow
+		if err := rows.Scan(
+			&i.Date,
+			&i.ID,
+			&i.CreatedAt,
+			&i.LastModifiedAt,
+			&i.Weight,
+			&i.Reps,
+			&i.LogsOrder,
+			&i.ExerciseID,
+			&i.SetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateLog = `-- name: UpdateLog :one
 UPDATE logs
 SET weight = $1, reps = $2, logs_order = $3

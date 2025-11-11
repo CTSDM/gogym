@@ -40,3 +40,13 @@ ORDER BY logs_order ASC;
 DELETE FROM logs
 WHERE id = $1
 RETURNING *;
+
+-- name: GetLogsByUserID :many
+SELECT sessions.date, logs.*
+FROM logs
+LEFT JOIN sets ON sets.id = logs.set_id
+LEFT JOIN sessions ON sessions.id = sets.session_id
+WHERE sessions.user_id = $1
+ORDER BY sessions.date DESC, logs.logs_order DESC
+OFFSET $2
+LIMIT $3;
