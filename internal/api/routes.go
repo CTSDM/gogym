@@ -78,4 +78,7 @@ func addRoutes(pool *pgxpool.Pool, mux *http.ServeMux, db *database.Queries, aut
 	// exercises endpoints
 	mux.HandleFunc("GET /api/v1/exercises/{id}", authentication(exercise.HandlerGetExercise(db)))
 	mux.HandleFunc("GET /api/v1/exercises", authentication(exercise.HandlerGetExercises(db)))
+
+	// health endpoint
+	mux.HandleFunc("GET /health", handlerHealth(pool))
 }
