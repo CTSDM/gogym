@@ -92,7 +92,7 @@ func HandlerLogin(db *database.Queries, authConfig *auth.Config) http.HandlerFun
 		// Store the refresh token at the database
 		if _, err := db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
 			Token:     refreshToken,
-			ExpiresAt: pgtype.Timestamp{Time: time.Now().Add(time.Hour), Valid: true},
+			ExpiresAt: pgtype.Timestamp{Time: time.Now().Add(authConfig.RefreshTokenDuration).UTC(), Valid: true},
 			UserID:    user.ID,
 		}); err != nil {
 			util.RespondWithError(w, http.StatusInternalServerError, "Something went wrong while saving the refresh token", err)

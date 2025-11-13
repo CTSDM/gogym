@@ -79,7 +79,7 @@ func Authentication(db *database.Queries, authConfig *auth.Config) func(next htt
 					util.RespondWithError(w, http.StatusUnauthorized, "Invalid JWT and/or refresh token", err)
 					return
 				}
-				if refreshToken.ExpiresAt.Time.Before(time.Now()) {
+				if refreshToken.ExpiresAt.Time.Before(time.Now().UTC()) {
 					util.RespondWithError(w, http.StatusUnauthorized, "Invalid JWT and/or refresh token", err)
 					return
 				}
