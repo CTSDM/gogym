@@ -33,7 +33,9 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 	}
 	type res struct {
 		Sessions []sessionItem `json:"sessions"`
-		Total    int           `json:"total"` // total number of sessions for a given user
+		Limit    int32
+		Offset   int32
+		Total    int `json:"total"` // total number of sessions for a given user
 	}
 
 	validateQueryParams := func(r *http.Request) (int32, int32, map[string]string) {
@@ -195,6 +197,11 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 			})
 		}
 
-		util.RespondWithJSON(w, http.StatusOK, res{Sessions: result, Total: int(sessionsCount)})
+		util.RespondWithJSON(w, http.StatusOK, res{
+			Sessions: result,
+			Total:    int(sessionsCount),
+			Limit:    limit,
+			Offset:   offset,
+		})
 	}
 }
