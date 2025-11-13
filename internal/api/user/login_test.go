@@ -144,7 +144,6 @@ func TestHandlerLogin(t *testing.T) {
 				userIDDB := testutil.CreateUserDBTestHelper(t, db, tc.username, tc.password, false).ID
 				userID := userIDDB
 				userIDString := userIDDB.String()
-				testutil.CreateTokensDBHelperTest(t, db, authConfig, userID)
 				// Prepare request body
 				reqBodyStruct := loginReq{
 					Username: tc.username,
