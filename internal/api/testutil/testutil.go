@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -50,7 +52,9 @@ func SetupTestDB(ctx context.Context) (*pgxpool.Pool, func(), error) {
 	}
 
 	db := stdlib.OpenDBFromPool(dbPool)
-	if err := goose.UpContext(ctx, db, "../../../sql/schema"); err != nil {
+
+	migrationsPath := findMigrationsPath()
+	if err := goose.UpContext(ctx, db, migrationsPath); err != nil {
 		return nil, nil, fmt.Errorf("could not run migrations: %w", err)
 	}
 
@@ -202,4 +206,24 @@ func CreateLogExerciseDBTestHelper(
 	})
 	require.NoError(t, err)
 	return newLog.ID
+}
+
+func findMigrationsPath() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("could not get working directory: %s", err)
+	}
+
+	for {
+		migrationsPath := filepath.Join(wd, "sql", "schema")
+		if _, err := os.Stat(migrationsPath); err == nil {
+			return migrationsPath
+		}
+
+		parent := filepath.Dir(wd)
+		if parent == wd {
+			log.Fatal("could not find sql/schema directory")
+		}
+		wd = parent
+	}
 }
