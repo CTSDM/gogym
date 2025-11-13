@@ -86,7 +86,7 @@ func run(ctx context.Context, w io.Writer, fCheckEnv func(string) (string, bool)
 	}
 
 	go func() {
-		slog.Info("starting server...", slog.String("addr", httpServer.Addr))
+		slog.Info("starting server...", slog.String("port", env.serverPort))
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("error while trying to listen and serve",
 				slog.String("error", err.Error()),
