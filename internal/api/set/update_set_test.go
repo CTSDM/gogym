@@ -9,6 +9,7 @@ import (
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/stretchr/testify/assert"
@@ -122,13 +123,13 @@ func TestHandlerUpdateSet(t *testing.T) {
 			require.NoError(t, err, "unexpected error while creating the request")
 
 			ctx := req.Context()
-			ctx = middleware.ContextWithUser(ctx, user.ID)
+			ctx = util.ContextWithUser(ctx, user.ID)
 
 			if tc.hasSetID {
 				if tc.setID != 0 {
-					ctx = middleware.ContextWithResourceID(ctx, tc.setID)
+					ctx = util.ContextWithResourceID(ctx, tc.setID)
 				} else {
-					ctx = middleware.ContextWithResourceID(ctx, setID)
+					ctx = util.ContextWithResourceID(ctx, setID)
 				}
 			}
 

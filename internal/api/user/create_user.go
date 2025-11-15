@@ -64,11 +64,11 @@ func HandlerCreateUser(db *database.Queries, logger *slog.Logger) http.HandlerFu
 		reqParams, problems, err := validation.DecodeValid[*createUserRequest](r)
 		if len(problems) > 0 {
 			reqLogger.Debug("create user failed - invalid parameters", slog.Any("problems", problems))
-			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			util.RespondWithJSON(w, r, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
 			reqLogger.Debug("create user failed - invalid payload", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
+			util.RespondWithError(w, r, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -79,7 +79,7 @@ func HandlerCreateUser(db *database.Queries, logger *slog.Logger) http.HandlerFu
 				"create user failed - error hashing the password",
 				slog.String("error", err.Error()),
 			)
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
@@ -98,15 +98,15 @@ func HandlerCreateUser(db *database.Queries, logger *slog.Logger) http.HandlerFu
 					"create user failed - username already taken",
 					slog.String("error", err.Error()),
 				)
-				util.RespondWithError(w, http.StatusConflict, "Username is already in use", err)
+				util.RespondWithError(w, r, http.StatusConflict, "Username is already in use", err)
 				return
 			}
 			reqLogger.Error("create user failed - user creation error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 		reqLogger.Info("create user success", slog.String("user_id", user.ID.String()))
-		util.RespondWithJSON(w, http.StatusCreated, User{
+		util.RespondWithJSON(w, r, http.StatusCreated, User{
 			ID:        user.ID.String(),
 			Username:  user.Username,
 			Country:   user.Country.String,

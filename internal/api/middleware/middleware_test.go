@@ -22,7 +22,7 @@ import (
 
 func checkContextNext(t *testing.T, expectedUserID uuid.UUID) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := UserFromContext(r.Context())
+		userID, ok := util.UserFromContext(r.Context())
 		require.True(t, ok)
 		assert.Equal(t, expectedUserID, userID)
 		w.WriteHeader(http.StatusOK)
@@ -103,7 +103,7 @@ func TestAdminOnly(t *testing.T) {
 			})
 
 			// Admin function expects, on the happy path, to have a user on the context
-			ctx := ContextWithUser(req.Context(), userID)
+			ctx := util.ContextWithUser(req.Context(), userID)
 			req = req.WithContext(ctx)
 
 			handler := AdminOnly(db, logger)(dummyHandler)
@@ -306,13 +306,13 @@ func TestOwnershipInt64(t *testing.T) {
 			req := httptest.NewRequest("PUT", "/test/"+tc.pathValue, nil)
 			req.SetPathValue(tc.pathKey, tc.pathValue)
 
-			ctx := ContextWithUser(req.Context(), tc.userID)
+			ctx := util.ContextWithUser(req.Context(), tc.userID)
 			req = req.WithContext(ctx)
 
 			rr := httptest.NewRecorder()
 
 			dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				resourceID, ok := ResourceIDFromContext(r.Context())
+				resourceID, ok := util.ResourceIDFromContext(r.Context())
 				require.True(t, ok)
 				require.Equal(t, int64(123), resourceID.(int64))
 				w.WriteHeader(http.StatusOK)
@@ -408,13 +408,13 @@ func TestOwnershipUUID(t *testing.T) {
 			req := httptest.NewRequest("GET", "/test/"+tc.pathValue, nil)
 			req.SetPathValue(tc.pathKey, tc.pathValue)
 
-			ctx := ContextWithUser(req.Context(), tc.userID)
+			ctx := util.ContextWithUser(req.Context(), tc.userID)
 			req = req.WithContext(ctx)
 
 			rr := httptest.NewRecorder()
 
 			dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				rid, ok := ResourceIDFromContext(r.Context())
+				rid, ok := util.ResourceIDFromContext(r.Context())
 				require.True(t, ok)
 				require.Equal(t, resourceID, rid.(uuid.UUID))
 				w.WriteHeader(http.StatusOK)

@@ -31,7 +31,7 @@ func HandlerGetUsers(db *database.Queries, logger *slog.Logger) http.HandlerFunc
 		users, err := db.GetUsers(r.Context())
 		if err != nil {
 			reqLogger.Error("get users failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "could not retrieve users from the database", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "could not retrieve users from the database", err)
 			return
 		}
 
@@ -45,7 +45,7 @@ func HandlerGetUsers(db *database.Queries, logger *slog.Logger) http.HandlerFunc
 				responseVals.Users[i].Birthday = user.Birthday.Time.Format(apiconstants.DATE_LAYOUT)
 			}
 		}
-		util.RespondWithJSON(w, http.StatusOK, responseVals)
+		util.RespondWithJSON(w, r, http.StatusOK, responseVals)
 	}
 }
 
@@ -59,18 +59,18 @@ func HandlerGetUser(db *database.Queries, logger *slog.Logger) http.HandlerFunc 
 				"get user failed - could not parse user id to uuid",
 				slog.String("error", err.Error()),
 			)
-			util.RespondWithError(w, http.StatusNotFound, "user not found", err)
+			util.RespondWithError(w, r, http.StatusNotFound, "user not found", err)
 			return
 		}
 
 		// get the userDB from the database
 		userDB, err := db.GetUser(r.Context(), userID)
 		if err == pgx.ErrNoRows {
-			util.RespondWithError(w, http.StatusNotFound, "user not found", err)
+			util.RespondWithError(w, r, http.StatusNotFound, "user not found", err)
 			return
 		} else if err != nil {
 			reqLogger.Error("get user failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError,
+			util.RespondWithError(w, r, http.StatusInternalServerError,
 				"something went wrong while fetching the user from the database", err)
 			return
 		}
@@ -87,6 +87,6 @@ func HandlerGetUser(db *database.Queries, logger *slog.Logger) http.HandlerFunc 
 			user.Birthday = userDB.Birthday.Time.Format(apiconstants.DATE_LAYOUT)
 		}
 
-		util.RespondWithJSON(w, http.StatusOK, user)
+		util.RespondWithJSON(w, r, http.StatusOK, user)
 	}
 }

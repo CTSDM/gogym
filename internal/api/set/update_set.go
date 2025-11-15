@@ -24,11 +24,11 @@ func HandlerUpdateSet(pool *pgxpool.Pool, db *database.Queries, logger *slog.Log
 		reqParams, problems, err := validation.DecodeValid[*SetReq](r)
 		if len(problems) > 0 {
 			reqLogger.Debug("update set failed - validation failed", slog.Any("problems", problems))
-			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			util.RespondWithJSON(w, r, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
 			reqLogger.Debug("update set failed - invalid payload", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
+			util.RespondWithError(w, r, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -36,7 +36,7 @@ func HandlerUpdateSet(pool *pgxpool.Pool, db *database.Queries, logger *slog.Log
 		tx, err := pool.Begin(r.Context())
 		if err != nil {
 			reqLogger.Error("update set failed - transaction start error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
@@ -52,11 +52,11 @@ func HandlerUpdateSet(pool *pgxpool.Pool, db *database.Queries, logger *slog.Log
 				"update set failed - set not found after ownership check",
 				slog.String("error", err.Error()),
 			)
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		} else if err != nil {
 			reqLogger.Error("update set failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
@@ -70,7 +70,7 @@ func HandlerUpdateSet(pool *pgxpool.Pool, db *database.Queries, logger *slog.Log
 					"update set failed - update logs database error",
 					slog.String("error", err.Error()),
 				)
-				util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+				util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 				return
 			}
 		}
@@ -82,14 +82,14 @@ func HandlerUpdateSet(pool *pgxpool.Pool, db *database.Queries, logger *slog.Log
 			ID:         setID,
 		}); err != nil {
 			reqLogger.Error("update set failed - update set database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
 		if err := tx.Commit(r.Context()); err != nil {
 			reqLogger.Error("update set failed - transaction commit error", slog.String("error", err.Error()))
 			err = fmt.Errorf("could not commit the transaction: %w", err)
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 

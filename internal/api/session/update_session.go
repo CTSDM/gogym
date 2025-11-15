@@ -23,11 +23,11 @@ func HandlerUpdateSession(db *database.Queries, logger *slog.Logger) http.Handle
 		reqParams, problems, err := validation.DecodeValid[*sessionReq](r)
 		if len(problems) > 0 {
 			reqLogger.Debug("update session failed - validation errors", slog.Any("problems", problems))
-			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			util.RespondWithJSON(w, r, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
 			reqLogger.Debug("update session failed - invalid payload", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
+			util.RespondWithError(w, r, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -42,16 +42,16 @@ func HandlerUpdateSession(db *database.Queries, logger *slog.Logger) http.Handle
 		updatedSession, err := db.UpdateSession(r.Context(), dbParams)
 		if err == pgx.ErrNoRows {
 			reqLogger.Error("update session failed - missing session", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusNotFound, "session not found", err)
+			util.RespondWithError(w, r, http.StatusNotFound, "session not found", err)
 			return
 		} else if err != nil {
 			reqLogger.Error("update session failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
 		reqLogger.Info("update session success")
-		util.RespondWithJSON(w, http.StatusOK, sessionRes{
+		util.RespondWithJSON(w, r, http.StatusOK, sessionRes{
 			ID: updatedSession.ID.String(),
 			sessionReq: sessionReq{
 				Name:            updatedSession.Name,

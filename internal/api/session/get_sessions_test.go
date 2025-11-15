@@ -9,6 +9,7 @@ import (
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -190,7 +191,7 @@ func TestHandlerGetSessions(t *testing.T) {
 			require.NoError(t, err, "unexpected error while creating the request")
 
 			if !tc.noUserContext {
-				ctx := middleware.ContextWithUser(req.Context(), user.ID)
+				ctx := util.ContextWithUser(req.Context(), user.ID)
 				req = req.WithContext(ctx)
 			}
 

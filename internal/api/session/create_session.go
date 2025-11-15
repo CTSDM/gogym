@@ -77,10 +77,10 @@ func HandlerCreateSession(db *database.Queries, logger *slog.Logger) http.Handle
 	return func(w http.ResponseWriter, r *http.Request) {
 		reqLogger := middleware.BasicReqLogger(logger, r)
 		// Get userID from the context
-		userID, ok := middleware.UserFromContext(r.Context())
+		userID, ok := util.UserFromContext(r.Context())
 		if !ok {
 			reqLogger.Error("create session failed - user not in context")
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", nil)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", nil)
 			return
 		}
 
@@ -89,11 +89,11 @@ func HandlerCreateSession(db *database.Queries, logger *slog.Logger) http.Handle
 		reqParams, problems, err := validation.DecodeValid[*sessionReq](r)
 		if len(problems) > 0 {
 			reqLogger.Debug("create session failed - validation errors", slog.Any("problems", problems))
-			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			util.RespondWithJSON(w, r, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
 			reqLogger.Debug("create session failed - invalid payload", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
+			util.RespondWithError(w, r, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -112,12 +112,12 @@ func HandlerCreateSession(db *database.Queries, logger *slog.Logger) http.Handle
 				"create session failed - session creation error",
 				slog.String("error", err.Error()),
 			)
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
 		reqLogger.Info("create session success", slog.String("session_id", session.ID.String()))
-		util.RespondWithJSON(w, http.StatusCreated,
+		util.RespondWithJSON(w, r, http.StatusCreated,
 			sessionRes{
 				ID: session.ID.String(),
 				sessionReq: sessionReq{

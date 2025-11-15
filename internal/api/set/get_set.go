@@ -25,11 +25,11 @@ func HandlerGetSet(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 		// fetch a set by set id
 		setDB, err := db.GetSet(r.Context(), setID)
 		if err == pgx.ErrNoRows {
-			util.RespondWithError(w, http.StatusNotFound, "not found", err)
+			util.RespondWithError(w, r, http.StatusNotFound, "not found", err)
 			return
 		} else if err != nil {
 			reqLogger.Error("get set failed - fetch set database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
@@ -37,7 +37,7 @@ func HandlerGetSet(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 		logsDB, err := db.GetLogsBySetID(r.Context(), setDB.ID)
 		if err != nil {
 			reqLogger.Error("get set failed - fetch logs database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 		logsResParams := make([]exlog.LogRes, len(logsDB))
@@ -67,6 +67,6 @@ func HandlerGetSet(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 			Logs: logsResParams,
 		}
 
-		util.RespondWithJSON(w, http.StatusOK, resParams)
+		util.RespondWithJSON(w, r, http.StatusOK, resParams)
 	}
 }

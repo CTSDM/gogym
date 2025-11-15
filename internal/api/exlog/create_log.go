@@ -56,7 +56,7 @@ func HandlerCreateLog(db *database.Queries, logger *slog.Logger) http.HandlerFun
 		// set id must be a valid number
 		setID, err := strconv.ParseInt(r.PathValue("setID"), 10, 64)
 		if err != nil {
-			util.RespondWithError(w, http.StatusNotFound, "set ID not found", err)
+			util.RespondWithError(w, r, http.StatusNotFound, "set ID not found", err)
 			return
 		}
 		reqLogger = reqLogger.With(slog.Int64("set_id", setID))
@@ -64,11 +64,11 @@ func HandlerCreateLog(db *database.Queries, logger *slog.Logger) http.HandlerFun
 		reqParams, problems, err := validation.DecodeValid[*LogReq](r)
 		if len(problems) > 0 {
 			reqLogger.Debug("create log failed - validation failed", slog.Any("problems", problems))
-			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			util.RespondWithJSON(w, r, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
 			reqLogger.Debug("create log failed - invalid payload", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
+			util.RespondWithError(w, r, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -86,25 +86,25 @@ func HandlerCreateLog(db *database.Queries, logger *slog.Logger) http.HandlerFun
 			if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 				if strings.Contains(err.Error(), "set") {
 					reqLogger.Warn("create log failed - set not found")
-					util.RespondWithError(w, http.StatusNotFound, "set ID not found", err)
+					util.RespondWithError(w, r, http.StatusNotFound, "set ID not found", err)
 				} else if strings.Contains(err.Error(), "exercise") {
 					reqLogger.Warn("create log failed - exercise not found",
 						slog.Int64("exercise_id", int64(reqParams.ExerciseID)))
-					util.RespondWithError(w, http.StatusNotFound, "exercise ID not found", err)
+					util.RespondWithError(w, r, http.StatusNotFound, "exercise ID not found", err)
 				} else {
 					reqLogger.Error("create log failed - unknown FK violation",
 						slog.String("error", err.Error()))
-					util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+					util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 				}
 				return
 			}
 			reqLogger.Error("create log failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
 		reqLogger.Info("create log success", slog.Int64("log_id", newLog.ID))
-		util.RespondWithJSON(w, http.StatusCreated, LogRes{
+		util.RespondWithJSON(w, r, http.StatusCreated, LogRes{
 			ID:    newLog.ID,
 			SetID: setID,
 			LogReq: LogReq{

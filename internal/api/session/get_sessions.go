@@ -80,11 +80,11 @@ func HandlerGetSessions(db *database.Queries, logger *slog.Logger) http.HandlerF
 	return func(w http.ResponseWriter, r *http.Request) {
 		reqLogger := middleware.BasicReqLogger(logger, r)
 		// retrieve user from context
-		userID, ok := middleware.UserFromContext(r.Context())
+		userID, ok := util.UserFromContext(r.Context())
 		if !ok {
 			reqLogger.Error("get sessions failed - could not find user in context")
 			err := errors.New("could not find user in context")
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
@@ -93,7 +93,7 @@ func HandlerGetSessions(db *database.Queries, logger *slog.Logger) http.HandlerF
 		offset, limit, problems := validateQueryParams(r)
 		if len(problems) > 0 {
 			reqLogger.Debug("get sessions failed - validation error", slog.Any("problem", problems))
-			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			util.RespondWithJSON(w, r, http.StatusBadRequest, problems)
 			return
 		}
 
@@ -101,11 +101,11 @@ func HandlerGetSessions(db *database.Queries, logger *slog.Logger) http.HandlerF
 		sessionsCount, err := db.GetNumberSessionsByUserID(r.Context(), userID)
 		if err == pgx.ErrNoRows {
 			// early return with empty structure
-			util.RespondWithJSON(w, http.StatusOK, res{Sessions: make([]sessionItem, 0), Total: 0})
+			util.RespondWithJSON(w, r, http.StatusOK, res{Sessions: make([]sessionItem, 0), Total: 0})
 			return
 		} else if err != nil {
 			reqLogger.Error("get sessions failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
@@ -117,12 +117,12 @@ func HandlerGetSessions(db *database.Queries, logger *slog.Logger) http.HandlerF
 		})
 		if err != nil {
 			reqLogger.Error("get sessions failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
 		if len(sessions) == 0 {
-			util.RespondWithJSON(w, http.StatusOK, res{Sessions: []sessionItem{}, Total: int(sessionsCount)})
+			util.RespondWithJSON(w, r, http.StatusOK, res{Sessions: []sessionItem{}, Total: int(sessionsCount)})
 			return
 		}
 
@@ -136,7 +136,7 @@ func HandlerGetSessions(db *database.Queries, logger *slog.Logger) http.HandlerF
 		sets, err := db.GetSetsBySessionIDs(r.Context(), sessionIDs)
 		if err != nil {
 			reqLogger.Error("get sessions failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
@@ -155,7 +155,7 @@ func HandlerGetSessions(db *database.Queries, logger *slog.Logger) http.HandlerF
 					"get sessions failed - database error",
 					slog.String("error", err.Error()),
 				)
-				util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+				util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 				return
 			}
 		}
@@ -209,7 +209,7 @@ func HandlerGetSessions(db *database.Queries, logger *slog.Logger) http.HandlerF
 			})
 		}
 
-		util.RespondWithJSON(w, http.StatusOK, res{
+		util.RespondWithJSON(w, r, http.StatusOK, res{
 			Sessions: result,
 			Total:    int(sessionsCount),
 			Limit:    limit,

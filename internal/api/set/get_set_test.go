@@ -9,6 +9,7 @@ import (
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,9 +76,9 @@ func TestHandlerGetSet(t *testing.T) {
 
 			var ctx context.Context
 			if tc.setID != 0 {
-				ctx = middleware.ContextWithResourceID(req.Context(), tc.setID)
+				ctx = util.ContextWithResourceID(req.Context(), tc.setID)
 			} else {
-				ctx = middleware.ContextWithResourceID(req.Context(), setID)
+				ctx = util.ContextWithResourceID(req.Context(), setID)
 			}
 			req = req.WithContext(ctx)
 			handler := HandlerGetSet(db, logger)
