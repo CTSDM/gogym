@@ -1,7 +1,7 @@
 package exlog
 
 import (
-	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
@@ -12,25 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func HandlerUpdateLog(db *database.Queries) http.HandlerFunc {
+func HandlerUpdateLog(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		resourceID, ok := middleware.ResourceIDFromContext(r.Context())
-		if !ok {
-			err := errors.New("expected log id to be in the context")
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
-			return
-		}
-		logID, ok := resourceID.(int64)
-		if !ok {
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", nil)
-			return
-		}
+		reqLogger := middleware.BasicReqLogger(logger, r)
+		logID, _ := retrieveParseIDFromContext(r.Context())
+		reqLogger = reqLogger.With(slog.Int64("log_id", logID))
 		// decode and validate
 		reqParams, problems, err := validation.DecodeValid[*LogReq](r)
 		if len(problems) > 0 {
+			reqLogger.Debug("update log failed - validation failed", slog.Any("problems", problems))
 			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
+			reqLogger.Debug("update log failed - invalid payload", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
@@ -44,13 +38,20 @@ func HandlerUpdateLog(db *database.Queries) http.HandlerFunc {
 		}
 		updatedLog, err := db.UpdateLog(r.Context(), dbParams)
 		if err == pgx.ErrNoRows {
-			util.RespondWithError(w, http.StatusNotFound, "log not found", err)
+			reqLogger.Error("update log failed - log not found", slog.String("error", err.Error()))
+			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		} else if err != nil {
+			reqLogger.Error(
+				"update log failed - database error",
+				slog.String("error", err.Error()),
+				slog.Any("log_parameters", dbParams),
+			)
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
+		reqLogger.Info("update log success")
 		util.RespondWithJSON(w, http.StatusOK, LogRes{
 			ID:    updatedLog.ID,
 			SetID: updatedLog.SetID,

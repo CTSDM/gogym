@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/stretchr/testify/assert"
@@ -159,7 +160,8 @@ func TestHandlerCreateLog(t *testing.T) {
 
 			rr := httptest.NewRecorder()
 
-			HandlerCreateLog(db).ServeHTTP(rr, req)
+			handler := HandlerCreateLog(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())

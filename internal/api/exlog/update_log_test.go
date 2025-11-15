@@ -43,7 +43,7 @@ func TestHandlerUpdateLog(t *testing.T) {
 		},
 		{
 			name:       "log id does not exist",
-			statusCode: http.StatusNotFound,
+			statusCode: http.StatusInternalServerError,
 			hasJSON:    true,
 			weight:     100,
 			reps:       10,
@@ -51,7 +51,7 @@ func TestHandlerUpdateLog(t *testing.T) {
 			setID:      99999,
 			logID:      -5, // ids are always positive
 			hasLogID:   true,
-			errMsg:     []string{"not found"},
+			errMsg:     []string{"something went wrong"},
 		},
 		{
 			name:       "log id not found in the context",
@@ -119,7 +119,8 @@ func TestHandlerUpdateLog(t *testing.T) {
 			req = req.WithContext(ctx)
 			rr := httptest.NewRecorder()
 
-			HandlerUpdateLog(db).ServeHTTP(rr, req)
+			handler := HandlerUpdateLog(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Fatalf("Body response: %s", rr.Body.String())
 			}

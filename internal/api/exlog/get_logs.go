@@ -3,6 +3,7 @@ package exlog
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -18,7 +19,7 @@ const (
 	MAX_LIMIT      int32 = 200
 )
 
-func HandlerGetLogs(db *database.Queries) http.HandlerFunc {
+func HandlerGetLogs(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	type logItem struct {
 		Log  LogRes
 		Date string `json:"date"`
@@ -64,17 +65,22 @@ func HandlerGetLogs(db *database.Queries) http.HandlerFunc {
 
 		return offset, limit, problems
 	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqLogger := middleware.BasicReqLogger(logger, r)
 		// Get user from the context
 		userID, ok := middleware.UserFromContext(r.Context())
 		if !ok {
+			reqLogger.Error("get logs failed - user id not in context")
 			err := errors.New("could not find user in the context")
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
+		reqLogger = reqLogger.With(slog.String("user_id", userID.String()))
 
 		offset, limit, problems := validateQueryParams(r)
 		if len(problems) > 0 {
+			reqLogger.Debug("get logs failed - validation failed", slog.Any("problems", problems))
 			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
 		}
@@ -86,6 +92,7 @@ func HandlerGetLogs(db *database.Queries) http.HandlerFunc {
 			Limit:  limit,
 		})
 		if err != nil {
+			reqLogger.Error("get logs failed - database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
