@@ -38,7 +38,7 @@ func TestHandlerCreateSession(t *testing.T) {
 			testName:       "user not found in context",
 			missingContext: true,
 			statusCode:     http.StatusInternalServerError,
-			errMsg:         []string{"Could not find user id in request context"},
+			errMsg:         []string{"something went wrong"},
 		},
 		{
 			testName:   "no JSON sent",
@@ -94,9 +94,14 @@ func TestHandlerCreateSession(t *testing.T) {
 			hasJSON:         true,
 		},
 		{
-			testName:     "user in context but not in the database",
-			statusCode:   http.StatusUnauthorized,
-			userNotFound: true,
+			testName:        "user in context but not in the database",
+			name:            "morning workout",
+			date:            "2025-11-04",
+			startTimestamp:  1762294649,
+			durationMinutes: 120,
+			statusCode:      http.StatusInternalServerError,
+			hasJSON:         true,
+			userNotFound:    true,
 		},
 	}
 
@@ -143,7 +148,8 @@ func TestHandlerCreateSession(t *testing.T) {
 			rr := httptest.NewRecorder()
 
 			// Call the function
-			HandlerCreateSession(db).ServeHTTP(rr, req)
+			handler := HandlerCreateSession(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				assert.Equal(t, tc.statusCode, rr.Code)
 				t.Logf("Response body: %s", rr.Body.String())

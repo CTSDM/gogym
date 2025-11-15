@@ -1,27 +1,26 @@
 package set
 
 import (
+	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/CTSDM/gogym/internal/api/exlog"
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/jackc/pgx/v5"
 )
 
-func HandlerGetSet(db *database.Queries) http.HandlerFunc {
+func HandlerGetSet(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	type res struct {
 		SetRes
 		Logs []exlog.LogRes `json:"logs"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		setID, err := strconv.ParseInt(r.PathValue("id"), 10, 32)
-		if err != nil {
-			util.RespondWithError(w, http.StatusBadRequest, "invalid set id", err)
-			return
-		}
+		reqLogger := middleware.BasicReqLogger(logger, r)
+		setID, _ := retrieveParseIDFromContext(r.Context())
+		reqLogger = reqLogger.With(slog.Int64("set_id", setID))
 
 		// fetch a set by set id
 		setDB, err := db.GetSet(r.Context(), setID)
@@ -29,6 +28,7 @@ func HandlerGetSet(db *database.Queries) http.HandlerFunc {
 			util.RespondWithError(w, http.StatusNotFound, "not found", err)
 			return
 		} else if err != nil {
+			reqLogger.Error("get set failed - fetch set database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
@@ -36,6 +36,7 @@ func HandlerGetSet(db *database.Queries) http.HandlerFunc {
 		// fetch logs by set id
 		logsDB, err := db.GetLogsBySetID(r.Context(), setDB.ID)
 		if err != nil {
+			reqLogger.Error("get set failed - fetch logs database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}

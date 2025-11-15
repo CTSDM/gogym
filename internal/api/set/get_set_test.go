@@ -1,12 +1,13 @@
 package set
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,7 @@ import (
 func TestHandlerGetSet(t *testing.T) {
 	testCases := []struct {
 		name         string
-		setID        string
+		setID        int64
 		statusCode   int
 		errMessage   string
 		skipSetup    bool
@@ -34,20 +35,14 @@ func TestHandlerGetSet(t *testing.T) {
 		},
 		{
 			name:       "set not found - invalid id",
-			setID:      "99999",
+			setID:      99999,
 			statusCode: http.StatusNotFound,
 			errMessage: "not found",
 		},
 		{
-			name:       "set not found - non-numeric id",
-			setID:      "abc",
-			statusCode: http.StatusBadRequest,
-			errMessage: "invalid set id",
-		},
-		{
 			name:       "set not found - negative id",
 			skipSetup:  true,
-			setID:      "-1",
+			setID:      -1,
 			statusCode: http.StatusNotFound,
 			errMessage: "not found",
 		},
@@ -74,17 +69,19 @@ func TestHandlerGetSet(t *testing.T) {
 				}
 			}
 
-			idParam := tc.setID
-			if idParam == "" {
-				idParam = fmt.Sprintf("%d", setID)
-			}
-
 			req, err := http.NewRequest("GET", "/test", nil)
 			require.NoError(t, err, "unexpected error while creating the request")
-			req.SetPathValue("id", idParam)
 			rr := httptest.NewRecorder()
 
-			HandlerGetSet(db).ServeHTTP(rr, req)
+			var ctx context.Context
+			if tc.setID != 0 {
+				ctx = middleware.ContextWithResourceID(req.Context(), tc.setID)
+			} else {
+				ctx = middleware.ContextWithResourceID(req.Context(), setID)
+			}
+			req = req.WithContext(ctx)
+			handler := HandlerGetSet(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())

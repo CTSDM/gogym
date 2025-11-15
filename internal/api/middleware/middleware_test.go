@@ -106,8 +106,8 @@ func TestAdminOnly(t *testing.T) {
 			ctx := ContextWithUser(req.Context(), userID)
 			req = req.WithContext(ctx)
 
-			handler := AdminOnly(db)(dummyHandler)
-			handler.ServeHTTP(rr, req)
+			handler := AdminOnly(db, logger)(dummyHandler)
+			RequestID(handler).ServeHTTP(rr, req)
 
 			require.Equal(t, tc.statusCode, rr.Code)
 
@@ -204,8 +204,8 @@ func TestHandlerMiddlewareAuthentication(t *testing.T) {
 				req.Header.Set("X-Refresh-Token", "Token "+tc.refreshTokenString)
 			}
 
-			handler := Authentication(db, authConfig)(checkContextNext(t, userID))
-			handler.ServeHTTP(rr, req)
+			handler := Authentication(db, authConfig, logger)(checkContextNext(t, userID))
+			RequestID(handler).ServeHTTP(rr, req)
 			require.Equal(t, tc.statusCode, rr.Code)
 
 			// check for error message
@@ -318,9 +318,8 @@ func TestOwnershipInt64(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			handler := Ownership(tc.pathKey, tc.ownerFn)(dummyHandler)
-			handler.ServeHTTP(rr, req)
-
+			handler := Ownership(tc.pathKey, tc.ownerFn, logger)(dummyHandler)
+			RequestID(handler).ServeHTTP(rr, req)
 			require.Equal(t, tc.statusCode, rr.Code)
 
 			if tc.errMessage != "" {
@@ -421,9 +420,8 @@ func TestOwnershipUUID(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			handler := Ownership(tc.pathKey, tc.ownerFn)(dummyHandler)
-			handler.ServeHTTP(rr, req)
-
+			handler := Ownership(tc.pathKey, tc.ownerFn, logger)(dummyHandler)
+			RequestID(handler).ServeHTTP(rr, req)
 			require.Equal(t, tc.statusCode, rr.Code)
 
 			if tc.errMessage != "" {

@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
 	"time"
@@ -72,28 +73,26 @@ func (r *sessionReq) Valid(ctx context.Context) map[string]string {
 	return problems
 }
 
-func HandlerCreateSession(db *database.Queries) http.HandlerFunc {
+func HandlerCreateSession(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqLogger := middleware.BasicReqLogger(logger, r)
 		// Get userID from the context
 		userID, ok := middleware.UserFromContext(r.Context())
 		if !ok {
-			util.RespondWithError(w, http.StatusInternalServerError, "Could not find user id in request context", nil)
+			reqLogger.Error("create session failed - user not in context")
+			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", nil)
 			return
 		}
 
-		// Check userID against database
-		if _, err := db.GetUser(r.Context(), userID); err != nil {
-			util.RespondWithError(w, http.StatusUnauthorized, "Invalid credentials",
-				fmt.Errorf("could not find the userID provied by the JWT in the database: %w", err))
-			return
-		}
-
+		reqLogger = reqLogger.With(slog.String("user_id", userID.String()))
 		// Populate and validate the incoming request
 		reqParams, problems, err := validation.DecodeValid[*sessionReq](r)
 		if len(problems) > 0 {
+			reqLogger.Debug("create session failed - validation errors", slog.Any("problems", problems))
 			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
+			reqLogger.Debug("create session failed - invalid payload", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
@@ -109,10 +108,15 @@ func HandlerCreateSession(db *database.Queries) http.HandlerFunc {
 
 		session, err := db.CreateSession(r.Context(), dbParams)
 		if err != nil {
-			util.RespondWithError(w, http.StatusInternalServerError, "Could not create the session", err)
+			reqLogger.Error(
+				"create session failed - session creation error",
+				slog.String("error", err.Error()),
+			)
+			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
+		reqLogger.Info("create session success", slog.String("session_id", session.ID.String()))
 		util.RespondWithJSON(w, http.StatusCreated,
 			sessionRes{
 				ID: session.ID.String(),

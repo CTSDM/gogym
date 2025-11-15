@@ -3,10 +3,12 @@ package user
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/api/validation"
 	"github.com/CTSDM/gogym/internal/apiconstants"
@@ -55,14 +57,17 @@ func (r *createUserRequest) Valid(ctx context.Context) map[string]string {
 	return problems
 }
 
-func HandlerCreateUser(db *database.Queries) http.HandlerFunc {
+func HandlerCreateUser(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqLogger := middleware.BasicReqLogger(logger, r)
 		// validate the json
 		reqParams, problems, err := validation.DecodeValid[*createUserRequest](r)
 		if len(problems) > 0 {
+			reqLogger.Debug("create user failed - invalid parameters", slog.Any("problems", problems))
 			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
+			reqLogger.Debug("create user failed - invalid payload", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
@@ -70,10 +75,15 @@ func HandlerCreateUser(db *database.Queries) http.HandlerFunc {
 		// generate hashed password
 		hashed, err := auth.HashPassword(reqParams.Password)
 		if err != nil {
-			util.RespondWithError(w, http.StatusInternalServerError, "Something went wrong while hashing the password", err)
+			reqLogger.Error(
+				"create user failed - error hashing the password",
+				slog.String("error", err.Error()),
+			)
+			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
+		reqLogger = reqLogger.With(slog.String("username", reqParams.Username))
 		// check if the user exists in the database
 		// insert new user into the database
 		user, err := db.CreateUser(r.Context(), database.CreateUserParams{
@@ -84,12 +94,18 @@ func HandlerCreateUser(db *database.Queries) http.HandlerFunc {
 		})
 		if err != nil {
 			if strings.Contains(err.Error(), "23505") {
+				reqLogger.Warn(
+					"create user failed - username already taken",
+					slog.String("error", err.Error()),
+				)
 				util.RespondWithError(w, http.StatusConflict, "Username is already in use", err)
 				return
 			}
-			util.RespondWithError(w, http.StatusInternalServerError, "Something went wrong while creating the user", err)
+			reqLogger.Error("create user failed - user creation error", slog.String("error", err.Error()))
+			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
+		reqLogger.Info("create user success", slog.String("user_id", user.ID.String()))
 		util.RespondWithJSON(w, http.StatusCreated, User{
 			ID:        user.ID.String(),
 			Username:  user.Username,

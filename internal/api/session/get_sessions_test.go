@@ -196,7 +196,8 @@ func TestHandlerGetSessions(t *testing.T) {
 
 			rr := httptest.NewRecorder()
 
-			HandlerGetSessions(db).ServeHTTP(rr, req)
+			handler := HandlerGetSessions(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())

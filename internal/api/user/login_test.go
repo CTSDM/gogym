@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/auth"
@@ -97,7 +98,7 @@ func TestHandlerLogin(t *testing.T) {
 				req.Header.Set("Content-Type", "application/json")
 
 				rrLogin := httptest.NewRecorder()
-				HandlerLogin(db, authConfig).ServeHTTP(rrLogin, req)
+				middleware.RequestID(HandlerLogin(db, authConfig, logger)).ServeHTTP(rrLogin, req)
 				require.Equal(t, tc.code, rrLogin.Code, "mismatch in http status code")
 
 				if tc.hasInvalidPayload == true {
@@ -161,7 +162,7 @@ func TestHandlerLogin(t *testing.T) {
 				rr := httptest.NewRecorder()
 
 				// Handler Login
-				HandlerLogin(db, authConfig).ServeHTTP(rr, req)
+				middleware.RequestID(HandlerLogin(db, authConfig, logger)).ServeHTTP(rr, req)
 				require.Equal(t, tc.code, rr.Code, "mismatch in http status code")
 
 				if tc.code > 200 {

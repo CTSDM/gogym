@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"strings"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/api/validation"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -47,30 +49,29 @@ func (r *SetReq) Valid(ctx context.Context) map[string]string {
 	return problems
 }
 
-func HandlerCreateSet(db *database.Queries) http.HandlerFunc {
+func HandlerCreateSet(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqLogger := middleware.BasicReqLogger(logger, r)
 		// session id must be a valid uuid
 		sessionID, err := uuid.Parse(r.PathValue("sessionID"))
 		if err != nil {
-			util.RespondWithError(w, http.StatusNotFound, "session ID not found", err)
+			reqLogger.Debug("create set failed - invalid session id",
+				slog.String("error", err.Error()),
+				slog.String("session_id", r.PathValue("sessionID")),
+			)
+			util.RespondWithError(w, http.StatusBadRequest, "invalid session ID format", err)
 			return
 		}
 
+		reqLogger = reqLogger.With(slog.String("session_id", sessionID.String()))
 		reqParams, problems, err := validation.DecodeValid[*SetReq](r)
 		if len(problems) > 0 {
+			reqLogger.Debug("create set failed - validation failed", slog.Any("problems", problems))
 			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
+			reqLogger.Debug("create set failed - invalid payload", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
-			return
-		}
-
-		// Check session id against database
-		if _, err := db.GetSession(r.Context(), sessionID); err == pgx.ErrNoRows {
-			util.RespondWithError(w, http.StatusNotFound, "session ID not found", err)
-			return
-		} else if err != nil {
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong while fetching the session", err)
 			return
 		}
 
@@ -86,13 +87,30 @@ func HandlerCreateSet(db *database.Queries) http.HandlerFunc {
 		if err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23503" {
-				util.RespondWithError(w, http.StatusNotFound, "exercise id not found", err)
+				if strings.Contains(err.Error(), "session") {
+					reqLogger.Warn("create set failed - session not found")
+					util.RespondWithError(w, http.StatusNotFound, "session ID not found", err)
+				} else if strings.Contains(err.Error(), "exercise") {
+					reqLogger.Warn(
+						"create set failed - exercise not found",
+						slog.Int64("exercise_id", int64(reqParams.ExerciseID)),
+					)
+					util.RespondWithError(w, http.StatusNotFound, "exercise ID not found", err)
+				} else {
+					reqLogger.Error(
+						"create set failed - unknown foreign key violation",
+						slog.String("error", err.Error()),
+					)
+					util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+				}
 				return
 			}
-			util.RespondWithError(w, http.StatusInternalServerError, "could not create the set", err)
+			reqLogger.Error("create set failed - create set database error", slog.String("error", err.Error()))
+			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
+		reqLogger.Info("create set success", slog.Int64("set_id", set.ID))
 		util.RespondWithJSON(w, http.StatusCreated,
 			SetRes{
 				ID:        set.ID,
