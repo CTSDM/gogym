@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
@@ -137,7 +138,8 @@ func TestHandlerCreateExercise(t *testing.T) {
 			require.NoError(t, err, "unexpected error while creating the request")
 			rr := httptest.NewRecorder()
 
-			HandlerCreateExercise(db).ServeHTTP(rr, req)
+			handler := HandlerCreateExercise(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())
@@ -225,7 +227,8 @@ func TestHandlerGetExercises(t *testing.T) {
 			require.NoError(t, err, "unexpected error while creating the request")
 			rr := httptest.NewRecorder()
 
-			HandlerGetExercises(db).ServeHTTP(rr, req)
+			handler := HandlerGetExercises(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())
@@ -276,8 +279,8 @@ func TestHandlerGetExercise(t *testing.T) {
 			name:       "exercise not found - non-numeric id",
 			setupName:  "Pull-ups",
 			exerciseID: "abc",
-			statusCode: http.StatusNotFound,
-			errMessage: "exercise id not found",
+			statusCode: http.StatusBadRequest,
+			errMessage: "invalid exercise id format",
 		},
 		{
 			name:       "exercise not found - negative id",
@@ -312,7 +315,8 @@ func TestHandlerGetExercise(t *testing.T) {
 			req.SetPathValue("id", idParam)
 			rr := httptest.NewRecorder()
 
-			HandlerGetExercise(db).ServeHTTP(rr, req)
+			handler := HandlerGetExercise(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())

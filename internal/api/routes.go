@@ -84,22 +84,22 @@ func addRoutes(
 		authentication))
 
 	// logs endpoints
-	mux.HandleFunc("GET /api/v1/logs/", authentication(exlog.HandlerGetLogs(db)))
+	mux.HandleFunc("GET /api/v1/logs/", authentication(exlog.HandlerGetLogs(db, logger)))
 	mux.HandleFunc("POST /api/v1/sessions/{sessionID}/sets/{setID}/logs",
-		authentication(exlog.HandlerCreateLog(db)))
+		authentication(exlog.HandlerCreateLog(db, logger)))
 	mux.HandleFunc("PUT /api/v1/logs/{id}", middleware.Chain(
-		exlog.HandlerUpdateLog(db),
+		exlog.HandlerUpdateLog(db, logger),
 		middleware.Ownership("id", db.GetLogOwnerID, logger),
 		authentication))
 	mux.HandleFunc("DELETE /api/v1/logs/{id}", middleware.Chain(
-		exlog.HandlerDeleteLog(db),
+		exlog.HandlerDeleteLog(db, logger),
 		middleware.Ownership("id", db.GetLogOwnerID, logger),
 		authentication))
 
 	// exercises endpoints
-	mux.HandleFunc("GET /api/v1/exercises/{id}", authentication(exercise.HandlerGetExercise(db)))
-	mux.HandleFunc("GET /api/v1/exercises", authentication(exercise.HandlerGetExercises(db)))
+	mux.HandleFunc("GET /api/v1/exercises/{id}", authentication(exercise.HandlerGetExercise(db, logger)))
+	mux.HandleFunc("GET /api/v1/exercises", authentication(exercise.HandlerGetExercises(db, logger)))
 
 	// health endpoint
-	mux.HandleFunc("GET /health", handlerHealth(pool))
+	mux.HandleFunc("GET /health", handlerHealth(pool, logger))
 }

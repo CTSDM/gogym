@@ -3,6 +3,7 @@ package exlog
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
@@ -11,23 +12,24 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func HandlerDeleteLog(db *database.Queries) http.HandlerFunc {
+func HandlerDeleteLog(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqLogger := middleware.BasicReqLogger(logger, r)
 		// log id is stored in the context with a generic key
-		logID, err := retrieveParseIDFromContext(r.Context())
-		if err != nil {
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
-			return
-		}
+		logID, _ := retrieveParseIDFromContext(r.Context())
+		reqLogger = reqLogger.With(slog.Int64("log_id", logID))
 
 		// delete the log
 		if _, err := db.DeleteLog(r.Context(), logID); err == pgx.ErrNoRows {
-			util.RespondWithError(w, http.StatusNotFound, "not found", nil)
+			reqLogger.Warn("delete log failed - log id not in database", slog.String("error", err.Error()))
+			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", nil)
 			return
 		} else if err != nil {
+			reqLogger.Error("delete log failed - database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
+		reqLogger.Info("delete log success")
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -41,7 +43,7 @@ func retrieveParseIDFromContext(ctx context.Context) (int64, error) {
 	// coerce the resource id into int
 	logID, ok := resourceID.(int64)
 	if !ok {
-		return 0, errors.New("could not type coerce the log id in into int64")
+		return 0, errors.New("could not type coerce the log id into int64")
 	}
 	return logID, nil
 }

@@ -1,8 +1,10 @@
 package exlog
 
 import (
+	"bytes"
 	"context"
 	"log"
+	"log/slog"
 	"os"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 )
 
 var dbPool *pgxpool.Pool
+var logger *slog.Logger
 
 func TestMain(m *testing.M) {
 	var cleanup func()
@@ -19,6 +22,9 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatalf("could not set up test containers: %s", err.Error())
 	}
+
+	b := bytes.NewBuffer([]byte{})
+	logger = slog.New(slog.NewTextHandler(b, nil))
 
 	defer cleanup()
 	os.Exit(m.Run())

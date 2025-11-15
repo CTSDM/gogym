@@ -34,10 +34,10 @@ func TestHandlerDeleteLog(t *testing.T) {
 		},
 		{
 			name:       "log does not exist",
-			statusCode: http.StatusNotFound,
+			statusCode: http.StatusInternalServerError,
 			hasLogID:   true,
 			logID:      -1,
-			errMsg:     []string{"not found"},
+			errMsg:     []string{"something went wrong"},
 		},
 	}
 
@@ -76,7 +76,8 @@ func TestHandlerDeleteLog(t *testing.T) {
 			req = req.WithContext(ctx)
 			rr := httptest.NewRecorder()
 
-			HandlerDeleteLog(db).ServeHTTP(rr, req)
+			handler := HandlerDeleteLog(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("mismatch in status code, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())

@@ -1,23 +1,25 @@
 package api
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func handlerHealth(pool *pgxpool.Pool) http.HandlerFunc {
+func handlerHealth(pool *pgxpool.Pool, logger *slog.Logger) http.HandlerFunc {
 	type res struct {
 		Status    string `json:"status"`
 		Database  string `json:"database"`
 		Timestamp string `json:"timestamp"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqLogger := middleware.BasicReqLogger(logger, r)
 		if err := pool.Ping(r.Context()); err != nil {
-			log.Printf("could not reach the database: %s", err.Error())
+			reqLogger.Error("health check failed - database ping failed", slog.String("error", err.Error()))
 			util.RespondWithJSON(w, http.StatusServiceUnavailable, res{
 				Status:    "database unreachable",
 				Database:  "unavailable",
