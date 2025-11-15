@@ -21,11 +21,11 @@ func HandlerUpdateLog(db *database.Queries, logger *slog.Logger) http.HandlerFun
 		reqParams, problems, err := validation.DecodeValid[*LogReq](r)
 		if len(problems) > 0 {
 			reqLogger.Debug("update log failed - validation failed", slog.Any("problems", problems))
-			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			util.RespondWithJSON(w, r, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
 			reqLogger.Debug("update log failed - invalid payload", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
+			util.RespondWithError(w, r, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -39,7 +39,7 @@ func HandlerUpdateLog(db *database.Queries, logger *slog.Logger) http.HandlerFun
 		updatedLog, err := db.UpdateLog(r.Context(), dbParams)
 		if err == pgx.ErrNoRows {
 			reqLogger.Error("update log failed - log not found", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		} else if err != nil {
 			reqLogger.Error(
@@ -47,12 +47,12 @@ func HandlerUpdateLog(db *database.Queries, logger *slog.Logger) http.HandlerFun
 				slog.String("error", err.Error()),
 				slog.Any("log_parameters", dbParams),
 			)
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
 		reqLogger.Info("update log success")
-		util.RespondWithJSON(w, http.StatusOK, LogRes{
+		util.RespondWithJSON(w, r, http.StatusOK, LogRes{
 			ID:    updatedLog.ID,
 			SetID: updatedLog.SetID,
 			LogReq: LogReq{

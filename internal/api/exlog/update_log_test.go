@@ -9,6 +9,7 @@ import (
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -103,16 +104,16 @@ func TestHandlerUpdateLog(t *testing.T) {
 			// set up the user id as the owner
 			ctx := req.Context()
 			if tc.userID != [16]byte{} {
-				ctx = middleware.ContextWithUser(ctx, tc.userID)
+				ctx = util.ContextWithUser(ctx, tc.userID)
 			} else {
-				ctx = middleware.ContextWithUser(ctx, user.ID)
+				ctx = util.ContextWithUser(ctx, user.ID)
 			}
 			// set up the log id in the context using ContextWithResource
 			if tc.hasLogID {
 				if tc.logID != 0 {
-					ctx = middleware.ContextWithResourceID(ctx, tc.logID)
+					ctx = util.ContextWithResourceID(ctx, tc.logID)
 				} else {
-					ctx = middleware.ContextWithResourceID(ctx, logID)
+					ctx = util.ContextWithResourceID(ctx, logID)
 				}
 			}
 

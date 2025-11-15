@@ -13,6 +13,7 @@ import (
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
@@ -139,7 +140,7 @@ func TestHandlerCreateSession(t *testing.T) {
 				userID = uuid.New()
 			}
 
-			ctx := middleware.ContextWithUser(context.Background(), userID)
+			ctx := util.ContextWithUser(context.Background(), userID)
 			if tc.missingContext {
 				ctx = context.Background()
 			}

@@ -17,10 +17,10 @@ import (
 func HandlerDeleteSession(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		reqLogger := middleware.BasicReqLogger(logger, r)
-		userID, ok := middleware.UserFromContext(r.Context())
+		userID, ok := util.UserFromContext(r.Context())
 		if !ok {
 			err := errors.New("could not find user id in the context")
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 		// session id is stored in the context with a generic key
@@ -33,11 +33,11 @@ func HandlerDeleteSession(db *database.Queries, logger *slog.Logger) http.Handle
 			ID:     sessionID,
 		}); err == pgx.ErrNoRows {
 			reqLogger.Error("delete session failed - session not found", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusNotFound, "not found", nil)
+			util.RespondWithError(w, r, http.StatusNotFound, "not found", nil)
 			return
 		} else if err != nil {
 			reqLogger.Error("delete session failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 		reqLogger.Info("delete session success")
@@ -48,7 +48,7 @@ func HandlerDeleteSession(db *database.Queries, logger *slog.Logger) http.Handle
 func retrieveParseUUIDFromContext(ctx context.Context) (uuid.UUID, error) {
 	// Pull the resource from the context.
 	// If the resource is not found or cannot be parsed is an error, as it should have not happened.
-	resourceID, ok := middleware.ResourceIDFromContext(ctx)
+	resourceID, ok := util.ResourceIDFromContext(ctx)
 	if !ok {
 		return uuid.UUID{}, errors.New("could not find resource id from the context")
 	}

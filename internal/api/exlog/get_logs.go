@@ -69,11 +69,11 @@ func HandlerGetLogs(db *database.Queries, logger *slog.Logger) http.HandlerFunc 
 	return func(w http.ResponseWriter, r *http.Request) {
 		reqLogger := middleware.BasicReqLogger(logger, r)
 		// Get user from the context
-		userID, ok := middleware.UserFromContext(r.Context())
+		userID, ok := util.UserFromContext(r.Context())
 		if !ok {
 			reqLogger.Error("get logs failed - user id not in context")
 			err := errors.New("could not find user in the context")
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 		reqLogger = reqLogger.With(slog.String("user_id", userID.String()))
@@ -81,7 +81,7 @@ func HandlerGetLogs(db *database.Queries, logger *slog.Logger) http.HandlerFunc 
 		offset, limit, problems := validateQueryParams(r)
 		if len(problems) > 0 {
 			reqLogger.Debug("get logs failed - validation failed", slog.Any("problems", problems))
-			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			util.RespondWithJSON(w, r, http.StatusBadRequest, problems)
 			return
 		}
 
@@ -93,7 +93,7 @@ func HandlerGetLogs(db *database.Queries, logger *slog.Logger) http.HandlerFunc 
 		})
 		if err != nil {
 			reqLogger.Error("get logs failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
@@ -115,6 +115,6 @@ func HandlerGetLogs(db *database.Queries, logger *slog.Logger) http.HandlerFunc 
 			}
 		}
 
-		util.RespondWithJSON(w, http.StatusOK, resParams)
+		util.RespondWithJSON(w, r, http.StatusOK, resParams)
 	}
 }

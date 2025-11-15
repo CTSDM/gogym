@@ -20,7 +20,7 @@ func handlerHealth(pool *pgxpool.Pool, logger *slog.Logger) http.HandlerFunc {
 		reqLogger := middleware.BasicReqLogger(logger, r)
 		if err := pool.Ping(r.Context()); err != nil {
 			reqLogger.Error("health check failed - database ping failed", slog.String("error", err.Error()))
-			util.RespondWithJSON(w, http.StatusServiceUnavailable, res{
+			util.RespondWithJSON(w, r, http.StatusServiceUnavailable, res{
 				Status:    "database unreachable",
 				Database:  "unavailable",
 				Timestamp: time.Now().UTC().Format("2006-01-02 15:04:05"),
@@ -28,7 +28,7 @@ func handlerHealth(pool *pgxpool.Pool, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		util.RespondWithJSON(w, http.StatusOK, res{
+		util.RespondWithJSON(w, r, http.StatusOK, res{
 			Status:    "ok",
 			Database:  "connected",
 			Timestamp: time.Now().UTC().Format("2006-01-02 15:04:05"),

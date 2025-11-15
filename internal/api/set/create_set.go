@@ -59,7 +59,7 @@ func HandlerCreateSet(db *database.Queries, logger *slog.Logger) http.HandlerFun
 				slog.String("error", err.Error()),
 				slog.String("session_id", r.PathValue("sessionID")),
 			)
-			util.RespondWithError(w, http.StatusBadRequest, "invalid session ID format", err)
+			util.RespondWithError(w, r, http.StatusBadRequest, "invalid session ID format", err)
 			return
 		}
 
@@ -67,11 +67,11 @@ func HandlerCreateSet(db *database.Queries, logger *slog.Logger) http.HandlerFun
 		reqParams, problems, err := validation.DecodeValid[*SetReq](r)
 		if len(problems) > 0 {
 			reqLogger.Debug("create set failed - validation failed", slog.Any("problems", problems))
-			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			util.RespondWithJSON(w, r, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
 			reqLogger.Debug("create set failed - invalid payload", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
+			util.RespondWithError(w, r, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -89,29 +89,29 @@ func HandlerCreateSet(db *database.Queries, logger *slog.Logger) http.HandlerFun
 			if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 				if strings.Contains(err.Error(), "session") {
 					reqLogger.Warn("create set failed - session not found")
-					util.RespondWithError(w, http.StatusNotFound, "session ID not found", err)
+					util.RespondWithError(w, r, http.StatusNotFound, "session ID not found", err)
 				} else if strings.Contains(err.Error(), "exercise") {
 					reqLogger.Warn(
 						"create set failed - exercise not found",
 						slog.Int64("exercise_id", int64(reqParams.ExerciseID)),
 					)
-					util.RespondWithError(w, http.StatusNotFound, "exercise ID not found", err)
+					util.RespondWithError(w, r, http.StatusNotFound, "exercise ID not found", err)
 				} else {
 					reqLogger.Error(
 						"create set failed - unknown foreign key violation",
 						slog.String("error", err.Error()),
 					)
-					util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+					util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 				}
 				return
 			}
 			reqLogger.Error("create set failed - create set database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
 		reqLogger.Info("create set success", slog.Int64("set_id", set.ID))
-		util.RespondWithJSON(w, http.StatusCreated,
+		util.RespondWithJSON(w, r, http.StatusCreated,
 			SetRes{
 				ID:        set.ID,
 				SessionID: set.SessionID.String(),

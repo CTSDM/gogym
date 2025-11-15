@@ -7,6 +7,7 @@ import (
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
+	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -57,9 +58,9 @@ func TestHandlerDeleteSession(t *testing.T) {
 
 			ctx := req.Context()
 			if tc.userID != [16]byte{} {
-				ctx = middleware.ContextWithUser(ctx, tc.userID)
+				ctx = util.ContextWithUser(ctx, tc.userID)
 			} else {
-				ctx = middleware.ContextWithUser(ctx, user.ID)
+				ctx = util.ContextWithUser(ctx, user.ID)
 			}
 
 			if tc.hasSessionID {
@@ -69,7 +70,7 @@ func TestHandlerDeleteSession(t *testing.T) {
 				} else {
 					sid = sessionID
 				}
-				ctx = middleware.ContextWithResourceID(ctx, sid)
+				ctx = util.ContextWithResourceID(ctx, sid)
 			}
 
 			req = req.WithContext(ctx)

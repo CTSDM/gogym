@@ -15,7 +15,7 @@ import (
 
 func retrieveParseIDFromContext(ctx context.Context) (int64, error) {
 	// pull the resource from the context
-	resourceID, ok := middleware.ResourceIDFromContext(ctx)
+	resourceID, ok := util.ResourceIDFromContext(ctx)
 	if !ok {
 		return 0, errors.New("could not find the set id")
 	}
@@ -37,11 +37,11 @@ func HandlerDeleteSet(db *database.Queries, logger *slog.Logger) http.HandlerFun
 		// delete the set
 		if _, err := db.DeleteSet(r.Context(), setID); err == pgx.ErrNoRows {
 			reqLogger.Warn("delete set failed - set not found")
-			util.RespondWithError(w, http.StatusNotFound, "set not found", nil)
+			util.RespondWithError(w, r, http.StatusNotFound, "set not found", nil)
 			return
 		} else if err != nil {
 			reqLogger.Error("delete set failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 		reqLogger.Info("delete set success")

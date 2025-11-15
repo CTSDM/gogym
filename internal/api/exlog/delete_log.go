@@ -22,11 +22,11 @@ func HandlerDeleteLog(db *database.Queries, logger *slog.Logger) http.HandlerFun
 		// delete the log
 		if _, err := db.DeleteLog(r.Context(), logID); err == pgx.ErrNoRows {
 			reqLogger.Warn("delete log failed - log id not in database", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", nil)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", nil)
 			return
 		} else if err != nil {
 			reqLogger.Error("delete log failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 		reqLogger.Info("delete log success")
@@ -36,7 +36,7 @@ func HandlerDeleteLog(db *database.Queries, logger *slog.Logger) http.HandlerFun
 
 func retrieveParseIDFromContext(ctx context.Context) (int64, error) {
 	// pull the resource from the context
-	resourceID, ok := middleware.ResourceIDFromContext(ctx)
+	resourceID, ok := util.ResourceIDFromContext(ctx)
 	if !ok {
 		return 0, errors.New("could not find the log id")
 	}

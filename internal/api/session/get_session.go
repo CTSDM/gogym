@@ -27,7 +27,7 @@ func HandlerGetSession(db *database.Queries, logger *slog.Logger) http.HandlerFu
 	return func(w http.ResponseWriter, r *http.Request) {
 		reqLogger := middleware.BasicReqLogger(logger, r)
 
-		if userID, ok := middleware.UserFromContext(r.Context()); ok {
+		if userID, ok := util.UserFromContext(r.Context()); ok {
 			reqLogger = reqLogger.With(slog.String("user_id", userID.String()))
 		}
 
@@ -37,18 +37,18 @@ func HandlerGetSession(db *database.Queries, logger *slog.Logger) http.HandlerFu
 		// Fetch the session
 		sessionRow, err := db.GetSession(r.Context(), sessionID)
 		if err == pgx.ErrNoRows {
-			util.RespondWithError(w, http.StatusNotFound, "session not found", err)
+			util.RespondWithError(w, r, http.StatusNotFound, "session not found", err)
 			return
 		} else if err != nil {
 			reqLogger.Error("get session failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
 		// Fetch the sets related to the session
 		setRows, err := db.GetSetsBySessionIDs(r.Context(), []uuid.UUID{sessionID})
 		if err != nil {
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
@@ -63,7 +63,7 @@ func HandlerGetSession(db *database.Queries, logger *slog.Logger) http.HandlerFu
 		if len(setIDs) > 0 {
 			logs, err = db.GetLogsBySetIDs(r.Context(), setIDs)
 			if err != nil {
-				util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+				util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 				return
 			}
 		}
@@ -113,6 +113,6 @@ func HandlerGetSession(db *database.Queries, logger *slog.Logger) http.HandlerFu
 			Sets: setsBySessionID[sessionID.String()],
 		}
 
-		util.RespondWithJSON(w, http.StatusOK, resParams)
+		util.RespondWithJSON(w, r, http.StatusOK, resParams)
 	}
 }

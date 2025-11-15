@@ -58,11 +58,11 @@ func HandlerCreateExercise(db *database.Queries, logger *slog.Logger) http.Handl
 		reqParams, problems, err := validation.DecodeValid[createExerciseReq](r)
 		if len(problems) > 0 {
 			reqLogger.Debug("create exercise failed - validation failed", slog.Any("problems", problems))
-			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			util.RespondWithJSON(w, r, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
 			reqLogger.Debug("create exercise failed - invalid payload", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
+			util.RespondWithError(w, r, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -73,12 +73,12 @@ func HandlerCreateExercise(db *database.Queries, logger *slog.Logger) http.Handl
 		})
 		if err != nil {
 			reqLogger.Error("create exercise failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong while creating the exercise", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong while creating the exercise", err)
 			return
 		}
 
 		reqLogger.Info("create exercise success", slog.Int64("exercise_id", int64(exercise.ID)))
-		util.RespondWithJSON(w, http.StatusCreated, createExerciseRes{
+		util.RespondWithJSON(w, r, http.StatusCreated, createExerciseRes{
 			ID: exercise.ID,
 			createExerciseReq: createExerciseReq{
 				Name:        exercise.Name,
@@ -95,7 +95,7 @@ func HandlerGetExercises(db *database.Queries, logger *slog.Logger) http.Handler
 		exercisesDB, err := db.GetExercises(r.Context())
 		if err != nil {
 			reqLogger.Error("get exercises failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong while retrieving the exercises", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong while retrieving the exercises", err)
 			return
 		}
 		resParams := exercisesRes{Exercises: make([]exerciseItem, len(exercisesDB))}
@@ -104,7 +104,7 @@ func HandlerGetExercises(db *database.Queries, logger *slog.Logger) http.Handler
 			resParams.Exercises[i].Name = e.Name
 			resParams.Exercises[i].ID = e.ID
 		}
-		util.RespondWithJSON(w, http.StatusOK, resParams)
+		util.RespondWithJSON(w, r, http.StatusOK, resParams)
 	}
 }
 
@@ -115,7 +115,7 @@ func HandlerGetExercise(db *database.Queries, logger *slog.Logger) http.HandlerF
 		exerciseID, err := strconv.ParseInt(exerciseIDString, 10, 32)
 		if err != nil {
 			reqLogger.Debug("invalid exercise id format", slog.String("exercise_id", exerciseIDString))
-			util.RespondWithError(w, http.StatusBadRequest, "invalid exercise id format", err)
+			util.RespondWithError(w, r, http.StatusBadRequest, "invalid exercise id format", err)
 			return
 		}
 		reqLogger = reqLogger.With(slog.Int64("exercise_id", exerciseID))
@@ -123,15 +123,15 @@ func HandlerGetExercise(db *database.Queries, logger *slog.Logger) http.HandlerF
 		exerciseDB, err := db.GetExercise(r.Context(), int32(exerciseID))
 		if err == pgx.ErrNoRows {
 			reqLogger.Debug("get exercise failed - exercise not in database", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusNotFound, "exercise id not found", err)
+			util.RespondWithError(w, r, http.StatusNotFound, "exercise id not found", err)
 			return
 		} else if err != nil {
 			reqLogger.Error("get exercise failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
-		util.RespondWithJSON(w, http.StatusOK, exerciseItem{
+		util.RespondWithJSON(w, r, http.StatusOK, exerciseItem{
 			ID:          exerciseDB.ID,
 			Name:        exerciseDB.Name,
 			Description: exerciseDB.Description.String,

@@ -54,13 +54,13 @@ func HandlerLogin(db *database.Queries, authConfig *auth.Config, logger *slog.Lo
 			reqLogger.Debug("login failed - validation errors",
 				slog.Any("problems", problems),
 			)
-			util.RespondWithJSON(w, http.StatusBadRequest, problems)
+			util.RespondWithJSON(w, r, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
 			reqLogger.Debug("login failed - invalid payload",
 				slog.String("error", err.Error()),
 			)
-			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
+			util.RespondWithError(w, r, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
 
@@ -69,26 +69,26 @@ func HandlerLogin(db *database.Queries, authConfig *auth.Config, logger *slog.Lo
 		user, err := db.GetUserByUsername(r.Context(), reqParams.Username)
 		if err == pgx.ErrNoRows {
 			reqLogger.Warn("login failed - user not found")
-			util.RespondWithJSON(w, http.StatusOK, util.ErrorResponse{
+			util.RespondWithJSON(w, r, http.StatusOK, util.ErrorResponse{
 				Error: "Incorrect username/password",
 			})
 			return
 		} else if err != nil {
 			reqLogger.Error("login failed - database error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
 		// verify the password
 		if err := auth.CheckPasswordHash(reqParams.Password, user.HashedPassword); err == bcrypt.ErrMismatchedHashAndPassword {
 			reqLogger.Warn("login failed - incorrect password")
-			util.RespondWithJSON(w, http.StatusOK, util.ErrorResponse{
+			util.RespondWithJSON(w, r, http.StatusOK, util.ErrorResponse{
 				Error: "Incorrect username/password",
 			})
 			return
 		} else if err != nil {
 			reqLogger.Error("login failed - password verification error", slog.String("error", err.Error()))
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
@@ -98,7 +98,7 @@ func HandlerLogin(db *database.Queries, authConfig *auth.Config, logger *slog.Lo
 			reqLogger.Error("login failed - refresh token creation error",
 				slog.String("error", err.Error()),
 			)
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 		jwtString, err := auth.MakeJWT(user.ID.String(), authConfig.JWTsecret, authConfig.JWTDuration)
@@ -106,7 +106,7 @@ func HandlerLogin(db *database.Queries, authConfig *auth.Config, logger *slog.Lo
 			reqLogger.Error("login failed - JWT creation error",
 				slog.String("error", err.Error()),
 			)
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
@@ -119,13 +119,13 @@ func HandlerLogin(db *database.Queries, authConfig *auth.Config, logger *slog.Lo
 			reqLogger.Error("login failed - refresh token storage error",
 				slog.String("error", err.Error()),
 			)
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
+			util.RespondWithError(w, r, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
 		// Return the payload
 		reqLogger.Info("login successful", slog.String("user_id", user.ID.String()))
-		util.RespondWithJSON(w, http.StatusOK, loginRes{
+		util.RespondWithJSON(w, r, http.StatusOK, loginRes{
 			Username:     user.Username,
 			UserID:       user.ID.String(),
 			Token:        jwtString,
