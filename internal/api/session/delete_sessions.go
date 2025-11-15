@@ -3,6 +3,8 @@ package session
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/CTSDM/gogym/internal/api/middleware"
@@ -12,8 +14,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func HandlerDeleteSession(db *database.Queries) http.HandlerFunc {
+func HandlerDeleteSession(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqLogger := middleware.BasicReqLogger(logger, r)
 		userID, ok := middleware.UserFromContext(r.Context())
 		if !ok {
 			err := errors.New("could not find user id in the context")
@@ -21,37 +24,39 @@ func HandlerDeleteSession(db *database.Queries) http.HandlerFunc {
 			return
 		}
 		// session id is stored in the context with a generic key
-		sessionID, err := retrieveParseUUIDFromContext(r.Context())
-		if err != nil {
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
-			return
-		}
+		sessionID, _ := retrieveParseUUIDFromContext(r.Context())
+		reqLogger.With(slog.String("user_id", userID.String()), slog.String("session_id", sessionID.String()))
 
 		// delete the resource
 		if _, err := db.DeleteSession(r.Context(), database.DeleteSessionParams{
 			UserID: userID,
 			ID:     sessionID,
 		}); err == pgx.ErrNoRows {
+			reqLogger.Error("delete session failed - session not found", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusNotFound, "not found", nil)
 			return
 		} else if err != nil {
+			reqLogger.Error("delete session failed - database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
+		reqLogger.Info("delete session success")
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
 func retrieveParseUUIDFromContext(ctx context.Context) (uuid.UUID, error) {
-	// pull the resource from the context
+	// Pull the resource from the context.
+	// If the resource is not found or cannot be parsed is an error, as it should have not happened.
 	resourceID, ok := middleware.ResourceIDFromContext(ctx)
 	if !ok {
-		return uuid.UUID{}, errors.New("could not find session id in the context")
+		return uuid.UUID{}, errors.New("could not find resource id from the context")
 	}
 	// coerce the resource into uuid
 	sessionID, ok := resourceID.(uuid.UUID)
 	if !ok {
-		return uuid.UUID{}, errors.New("could not type coerce session id into uuid")
+		err := fmt.Errorf("could not coerce the resource id, %v, into an uuid", resourceID)
+		return uuid.UUID{}, err
 	}
 	return sessionID, nil
 }

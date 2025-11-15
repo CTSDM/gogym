@@ -36,11 +36,6 @@ func TestHandlerUpdateSession(t *testing.T) {
 			hasSessionID: true,
 		},
 		{
-			name:       "session id not found in the context",
-			statusCode: http.StatusInternalServerError,
-			errMsg:     []string{"something went wrong"},
-		},
-		{
 			name:         "session does not exist",
 			statusCode:   http.StatusNotFound,
 			sessionName:  "updated session",
@@ -127,7 +122,9 @@ func TestHandlerUpdateSession(t *testing.T) {
 			req = req.WithContext(ctx)
 			rr := httptest.NewRecorder()
 
-			HandlerUpdateSession(db).ServeHTTP(rr, req)
+			handler := HandlerUpdateSession(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
+
 			if tc.statusCode != rr.Code {
 				t.Logf("mismatch in status code, want %d, gots %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())

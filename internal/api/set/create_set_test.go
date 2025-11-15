@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
@@ -34,10 +35,10 @@ func TestCreateSet(t *testing.T) {
 			statusCode: http.StatusCreated,
 		},
 		{
-			name:         "invalid session id",
+			name:         "invalid session ID format",
 			sessionIDStr: "notvalid",
-			statusCode:   http.StatusNotFound,
-			errMessage:   []string{"session ID not found"},
+			statusCode:   http.StatusBadRequest,
+			errMessage:   []string{"invalid session ID format"},
 		},
 		{
 			name:       "invalid order",
@@ -46,7 +47,7 @@ func TestCreateSet(t *testing.T) {
 			errMessage: []string{"invalid order"},
 		},
 		{
-			name:         "session id not found",
+			name:         "session ID not found",
 			sessionIDStr: uuid.NewString(),
 			statusCode:   http.StatusNotFound,
 			errMessage:   []string{"session ID not found"},
@@ -57,7 +58,7 @@ func TestCreateSet(t *testing.T) {
 			statusCode: http.StatusCreated,
 		},
 		{
-			name:       "exercise id not found",
+			name:       "exercise ID not found",
 			restTime:   -1,
 			exerciseID: -100,
 			statusCode: http.StatusNotFound,
@@ -110,7 +111,8 @@ func TestCreateSet(t *testing.T) {
 			rr := httptest.NewRecorder()
 
 			// call the function
-			HandlerCreateSet(db).ServeHTTP(rr, req)
+			handler := HandlerCreateSet(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("Status code do not match, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())

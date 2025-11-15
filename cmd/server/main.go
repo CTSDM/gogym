@@ -41,15 +41,15 @@ func run(ctx context.Context, w io.Writer, fCheckEnv func(string) (string, bool)
 		AddSource: true,
 		Level:     slog.LevelDebug,
 	})
-	slog.SetDefault(slog.New(logHandler))
+	logger := slog.New(logHandler)
 
 	env, err := loadEnvConfig(fCheckEnv)
 	if err != nil {
-		slog.Error("missing env parameter", slog.String("error", err.Error()))
+		logger.Error("missing env parameter", slog.String("error", err.Error()))
 		return err
 	}
 
-	slog.Info("connecting to database",
+	logger.Info("connecting to database",
 		slog.String("host", env.dbHostPort),
 		slog.String("database", env.database),
 	)
@@ -62,22 +62,22 @@ func run(ctx context.Context, w io.Writer, fCheckEnv func(string) (string, bool)
 		env.devFlag,
 	)
 	if err != nil {
-		slog.Error("could not connect to the database", slog.String("error", err.Error()))
+		logger.Error("could not connect to the database", slog.String("error", err.Error()))
 		return fmt.Errorf("could not connect to the database: %w", err)
 	}
-	slog.Info("database connected")
+	logger.Info("database connected")
 	defer dbPool.Close()
 
-	if err := initialSetup(ctx, dbQueries, env.adminUsername, env.adminPassword); err != nil {
-		slog.Error("could not finish the initial set up", slog.String("error", err.Error()))
+	if err := initialSetup(ctx, dbQueries, env.adminUsername, env.adminPassword, logger); err != nil {
+		logger.Error("could not finish the initial set up", slog.String("error", err.Error()))
 		return fmt.Errorf("could not set the initial set up: %w", err)
 	}
 	authConfig, err := getAuthConfig(env.jwtSecret, env.jwtDuration, env.refreshTokenDuration)
 	if err != nil {
-		slog.Error("could not set up the auth config", slog.String("error", err.Error()))
+		logger.Error("could not set up the auth config", slog.String("error", err.Error()))
 		return fmt.Errorf("could not set up the auth config: %w", err)
 	}
-	server := api.NewServer(dbPool, dbQueries, authConfig)
+	server := api.NewServer(dbPool, dbQueries, authConfig, logger)
 
 	httpServer := &http.Server{
 		Addr:        ":" + env.serverPort,
@@ -86,9 +86,9 @@ func run(ctx context.Context, w io.Writer, fCheckEnv func(string) (string, bool)
 	}
 
 	go func() {
-		slog.Info("starting server...", slog.String("port", env.serverPort))
+		logger.Info("starting server...", slog.String("port", env.serverPort))
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("error while trying to listen and serve",
+			logger.Error("error while trying to listen and serve",
 				slog.String("error", err.Error()),
 				slog.String("addr", httpServer.Addr),
 			)
@@ -100,17 +100,17 @@ func run(ctx context.Context, w io.Writer, fCheckEnv func(string) (string, bool)
 	wg.Go(func() {
 		<-ctx.Done()
 		timeout := 10 * time.Second
-		slog.Info("received signal to cancel server, shutting down server...")
+		logger.Info("received signal to cancel server, shutting down server...")
 		shutDownCtx := context.Background()
 		shutDownCtx, cancel := context.WithTimeout(shutDownCtx, timeout)
 		defer cancel()
 		if err := httpServer.Shutdown(shutDownCtx); err != nil {
-			slog.Error("could not gracefully shut down server",
+			logger.Error("could not gracefully shut down server",
 				slog.String("error", err.Error()),
 				slog.Duration("timeout", timeout))
 			return
 		}
-		slog.Info("server shut down gracefully...")
+		logger.Info("server shut down gracefully...")
 	})
 
 	wg.Wait()
@@ -215,13 +215,18 @@ func getAuthConfig(jwtSecret string, jwtDuration, refreshTokenDuration int) (*au
 	}, nil
 }
 
-func dbSetup(ctx context.Context, db *database.Queries, username, password string) error {
+func dbSetup(
+	ctx context.Context,
+	db *database.Queries,
+	username, password string,
+	logger *slog.Logger,
+) error {
 	// check if the admin exists
 	user, err := db.GetUserByUsername(ctx, username)
 	switch err {
 	case nil:
 		if user.IsAdmin.Bool {
-			slog.Info("admin found on the database")
+			logger.Info("admin found on the database")
 			return nil
 		} else {
 			return errors.New("found user instead of admin when setting up the admin")
@@ -232,7 +237,7 @@ func dbSetup(ctx context.Context, db *database.Queries, username, password strin
 	}
 
 	// create the admin
-	slog.Info("creating user admin...",
+	logger.Info("creating user admin...",
 		slog.String("username", username),
 		slog.String("password", "REDACTED"),
 	)
@@ -247,16 +252,24 @@ func dbSetup(ctx context.Context, db *database.Queries, username, password strin
 		return fmt.Errorf("something went wrong while creating the admin: %s", err)
 	}
 
-	slog.Info("admin successfully created")
+	logger.Info("admin successfully created")
 	return nil
 }
 
 // Creates an admin in the database in case it does not exist.
-func initialSetup(ctx context.Context, db *database.Queries, username, password string) error {
-	return dbSetup(ctx, db, username, password)
+func initialSetup(
+	ctx context.Context,
+	db *database.Queries,
+	username, password string,
+	logger *slog.Logger,
+) error {
+	return dbSetup(ctx, db, username, password, logger)
 }
 
-func getDB(ctx context.Context, dbUsername, dbPassword, dbHostPort, dbName, devFlag string) (*pgxpool.Pool, *database.Queries, error) {
+func getDB(
+	ctx context.Context,
+	dbUsername, dbPassword, dbHostPort, dbName, devFlag string,
+) (*pgxpool.Pool, *database.Queries, error) {
 	dbConnURL, err := getDBConnURL(dbUsername, dbPassword, dbHostPort, dbName, devFlag)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to obtain the database url: %w", err)

@@ -1,9 +1,11 @@
 package session
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/CTSDM/gogym/internal/api/exlog"
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/set"
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/apiconstants"
@@ -12,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func HandlerGetSession(db *database.Queries) http.HandlerFunc {
+func HandlerGetSession(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	type setItem struct {
 		set.SetRes
 		Logs []exlog.LogRes `json:"logs"`
@@ -23,12 +25,14 @@ func HandlerGetSession(db *database.Queries) http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get session id from the context
-		sessionID, err := retrieveParseUUIDFromContext(r.Context())
-		if err != nil {
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
-			return
+		reqLogger := middleware.BasicReqLogger(logger, r)
+
+		if userID, ok := middleware.UserFromContext(r.Context()); ok {
+			reqLogger = reqLogger.With(slog.String("user_id", userID.String()))
 		}
+
+		// Get session id from the context
+		sessionID, _ := retrieveParseUUIDFromContext(r.Context())
 
 		// Fetch the session
 		sessionRow, err := db.GetSession(r.Context(), sessionID)
@@ -36,6 +40,7 @@ func HandlerGetSession(db *database.Queries) http.HandlerFunc {
 			util.RespondWithError(w, http.StatusNotFound, "session not found", err)
 			return
 		} else if err != nil {
+			reqLogger.Error("get session failed - database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}

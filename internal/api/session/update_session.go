@@ -1,8 +1,10 @@
 package session
 
 import (
+	"log/slog"
 	"net/http"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/api/validation"
 	"github.com/CTSDM/gogym/internal/apiconstants"
@@ -11,20 +13,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func HandlerUpdateSession(db *database.Queries) http.HandlerFunc {
+func HandlerUpdateSession(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sessionID, err := retrieveParseUUIDFromContext(r.Context())
-		if err != nil {
-			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
-			return
-		}
+		reqLogger := middleware.BasicReqLogger(logger, r)
+		sessionID, _ := retrieveParseUUIDFromContext(r.Context())
+		reqLogger = reqLogger.With(slog.String("session_id", sessionID.String()))
 
 		// decode and validate
 		reqParams, problems, err := validation.DecodeValid[*sessionReq](r)
 		if len(problems) > 0 {
+			reqLogger.Debug("update session failed - validation errors", slog.Any("problems", problems))
 			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
 		} else if err != nil {
+			reqLogger.Debug("update session failed - invalid payload", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusBadRequest, "invalid payload", err)
 			return
 		}
@@ -39,13 +41,16 @@ func HandlerUpdateSession(db *database.Queries) http.HandlerFunc {
 		}
 		updatedSession, err := db.UpdateSession(r.Context(), dbParams)
 		if err == pgx.ErrNoRows {
+			reqLogger.Error("update session failed - missing session", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusNotFound, "session not found", err)
 			return
 		} else if err != nil {
+			reqLogger.Error("update session failed - database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
+		reqLogger.Info("update session success")
 		util.RespondWithJSON(w, http.StatusOK, sessionRes{
 			ID: updatedSession.ID.String(),
 			sessionReq: sessionReq{

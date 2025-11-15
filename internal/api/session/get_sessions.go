@@ -3,6 +3,7 @@ package session
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -22,7 +23,7 @@ const (
 	DEFAULT_OFFSET int32 = 0
 )
 
-func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
+func HandlerGetSessions(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	type setItem struct {
 		set.SetRes
 		Logs []exlog.LogRes `json:"logs"`
@@ -77,17 +78,21 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqLogger := middleware.BasicReqLogger(logger, r)
 		// retrieve user from context
 		userID, ok := middleware.UserFromContext(r.Context())
 		if !ok {
+			reqLogger.Error("get sessions failed - could not find user in context")
 			err := errors.New("could not find user in context")
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
 
+		reqLogger = reqLogger.With(slog.String("user_id", userID.String()))
 		// Get offset and limit from the query parameters
 		offset, limit, problems := validateQueryParams(r)
 		if len(problems) > 0 {
+			reqLogger.Debug("get sessions failed - validation error", slog.Any("problem", problems))
 			util.RespondWithJSON(w, http.StatusBadRequest, problems)
 			return
 		}
@@ -99,6 +104,7 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 			util.RespondWithJSON(w, http.StatusOK, res{Sessions: make([]sessionItem, 0), Total: 0})
 			return
 		} else if err != nil {
+			reqLogger.Error("get sessions failed - database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
@@ -110,6 +116,7 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 			Limit:  limit,
 		})
 		if err != nil {
+			reqLogger.Error("get sessions failed - database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
@@ -128,6 +135,7 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 		// fetch sets for these sessions
 		sets, err := db.GetSetsBySessionIDs(r.Context(), sessionIDs)
 		if err != nil {
+			reqLogger.Error("get sessions failed - database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 			return
 		}
@@ -143,6 +151,10 @@ func HandlerGetSessions(db *database.Queries) http.HandlerFunc {
 		if len(setIDs) > 0 {
 			logs, err = db.GetLogsBySetIDs(r.Context(), setIDs)
 			if err != nil {
+				reqLogger.Error(
+					"get sessions failed - database error",
+					slog.String("error", err.Error()),
+				)
 				util.RespondWithError(w, http.StatusInternalServerError, "something went wrong", err)
 				return
 			}

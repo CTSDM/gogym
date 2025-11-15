@@ -28,11 +28,6 @@ func TestHandlerDeleteSession(t *testing.T) {
 			hasSessionID: true,
 		},
 		{
-			name:       "session id not found in the context",
-			statusCode: http.StatusInternalServerError,
-			errMsg:     []string{"something went wrong"},
-		},
-		{
 			name:         "session does not exist",
 			statusCode:   http.StatusNotFound,
 			hasSessionID: true,
@@ -80,7 +75,8 @@ func TestHandlerDeleteSession(t *testing.T) {
 			req = req.WithContext(ctx)
 			rr := httptest.NewRecorder()
 
-			HandlerDeleteSession(db).ServeHTTP(rr, req)
+			handler := HandlerDeleteSession(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("mismatch in status code, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())

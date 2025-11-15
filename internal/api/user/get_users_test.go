@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
 	"github.com/CTSDM/gogym/internal/database"
 	"github.com/google/uuid"
@@ -65,7 +66,8 @@ func TestHandlerGetUser(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			HandlerGetUser(db).ServeHTTP(rr, req)
+			handler := HandlerGetUser(db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			require.Equal(t, tc.statusCode, rr.Code, "wrong status code")
 			tc.validateFn(t, rr, user)
 		})
@@ -79,7 +81,8 @@ func TestHandlerGetUser(t *testing.T) {
 		req.SetPathValue("id", userNoBirthday.ID.String())
 
 		rr := httptest.NewRecorder()
-		HandlerGetUser(db).ServeHTTP(rr, req)
+		handler := HandlerGetUser(db, logger)
+		middleware.RequestID(handler).ServeHTTP(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code, "wrong status code")
 
 		var response User
@@ -101,7 +104,8 @@ func TestHandlerGetUsers(t *testing.T) {
 		require.NoError(t, err, "unexpected error while setting up the request")
 
 		rr := httptest.NewRecorder()
-		HandlerGetUsers(db).ServeHTTP(rr, req)
+		handler := HandlerGetUsers(db, logger)
+		middleware.RequestID(handler).ServeHTTP(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code, "wrong status code")
 
 		var response getUsersResponse
@@ -121,7 +125,8 @@ func TestHandlerGetUsers(t *testing.T) {
 		require.NoError(t, err, "unexpected error while setting up the request")
 
 		rr := httptest.NewRecorder()
-		HandlerGetUsers(db).ServeHTTP(rr, req)
+		handler := HandlerGetUsers(db, logger)
+		middleware.RequestID(handler).ServeHTTP(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code, "wrong status code")
 
 		var response getUsersResponse
@@ -156,7 +161,8 @@ func TestHandlerGetUsers(t *testing.T) {
 		require.NoError(t, err, "unexpected error while setting up the request")
 
 		rr := httptest.NewRecorder()
-		HandlerGetUsers(db).ServeHTTP(rr, req)
+		handler := HandlerGetUsers(db, logger)
+		middleware.RequestID(handler).ServeHTTP(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code, "wrong status code")
 
 		var response getUsersResponse

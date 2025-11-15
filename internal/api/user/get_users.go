@@ -1,8 +1,10 @@
 package user
 
 import (
+	"log/slog"
 	"net/http"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/util"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
@@ -22,10 +24,13 @@ type User struct {
 	Birthday  string `json:"birthday,omitempty"`
 }
 
-func HandlerGetUsers(db *database.Queries) http.HandlerFunc {
+func HandlerGetUsers(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqLogger := middleware.BasicReqLogger(logger, r)
+
 		users, err := db.GetUsers(r.Context())
 		if err != nil {
+			reqLogger.Error("get users failed - database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError, "could not retrieve users from the database", err)
 			return
 		}
@@ -44,11 +49,16 @@ func HandlerGetUsers(db *database.Queries) http.HandlerFunc {
 	}
 }
 
-func HandlerGetUser(db *database.Queries) http.HandlerFunc {
+func HandlerGetUser(db *database.Queries, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqLogger := middleware.BasicReqLogger(logger, r)
 		// user id must be a valid uuid
 		userID, err := uuid.Parse(r.PathValue("id"))
 		if err != nil {
+			reqLogger.Debug(
+				"get user failed - could not parse user id to uuid",
+				slog.String("error", err.Error()),
+			)
 			util.RespondWithError(w, http.StatusNotFound, "user not found", err)
 			return
 		}
@@ -59,6 +69,7 @@ func HandlerGetUser(db *database.Queries) http.HandlerFunc {
 			util.RespondWithError(w, http.StatusNotFound, "user not found", err)
 			return
 		} else if err != nil {
+			reqLogger.Error("get user failed - database error", slog.String("error", err.Error()))
 			util.RespondWithError(w, http.StatusInternalServerError,
 				"something went wrong while fetching the user from the database", err)
 			return

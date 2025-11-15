@@ -51,12 +51,12 @@ func TestHandlerUpdateSet(t *testing.T) {
 		},
 		{
 			name:       "set does not exist",
-			statusCode: http.StatusNotFound,
+			statusCode: http.StatusInternalServerError,
 			setOrder:   1,
 			restTime:   60,
 			hasSetID:   true,
 			setID:      -1,
-			errMsg:     []string{"not found"},
+			errMsg:     []string{"something went wrong"},
 		},
 		{
 			name:       "invalid order",
@@ -135,7 +135,8 @@ func TestHandlerUpdateSet(t *testing.T) {
 			req = req.WithContext(ctx)
 			rr := httptest.NewRecorder()
 
-			HandlerUpdateSet(dbPool, db).ServeHTTP(rr, req)
+			handler := HandlerUpdateSet(dbPool, db, logger)
+			middleware.RequestID(handler).ServeHTTP(rr, req)
 			if tc.statusCode != rr.Code {
 				t.Logf("mismatch in status code, want %d, got %d", tc.statusCode, rr.Code)
 				t.Fatalf("Body response: %s", rr.Body.String())

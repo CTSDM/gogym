@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/CTSDM/gogym/internal/api/middleware"
 	"github.com/CTSDM/gogym/internal/api/testutil"
 	"github.com/CTSDM/gogym/internal/apiconstants"
 	"github.com/CTSDM/gogym/internal/database"
@@ -106,7 +107,8 @@ func TestCreateUser(t *testing.T) {
 				rr := httptest.NewRecorder()
 
 				// Call the handler to test
-				HandlerCreateUser(db).ServeHTTP(rr, req)
+				handler := HandlerCreateUser(db, logger)
+				middleware.RequestID(handler).ServeHTTP(rr, req)
 
 				// Checks the response
 				assert.Equal(t, tc.statusCode, rr.Code, "mismatch in http status")
