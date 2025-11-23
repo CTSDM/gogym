@@ -23,7 +23,7 @@ import (
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load("example.env"); err != nil {
 		log.Fatalf("could not load env variables: %s", err.Error())
 	}
 
