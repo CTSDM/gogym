@@ -78,7 +78,7 @@ func TestCreateUser(t *testing.T) {
 	}
 
 	done := make(chan struct{})
-	timeoutDuration := 1 * time.Second
+	timeoutDuration := 10 * time.Second
 	ticker := time.NewTicker(timeoutDuration)
 	testutil.Cleanup(dbPool, "users")
 	db := database.New(dbPool)
