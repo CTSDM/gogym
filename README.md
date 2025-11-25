@@ -153,3 +153,6 @@ Access monitoring dashboards:
 
 - **Prometheus**: http://localhost:9090
 - **Grafana**: http://localhost:3000 *(default: admin/admin)*
+
+## Contributing
+- If you find any bug please feel free to create an issue or make a pull request!
